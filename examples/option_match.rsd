@@ -1,0 +1,17 @@
+fn first(xs: Vec[i32]) -> Option[i32] {
+    if xs.len() == 0 {
+        None
+    } else {
+        Some(xs[0])
+    }
+}
+
+fn main() {
+    let mut xs = vec()
+    xs.push(10)
+    xs.push(20)
+    match first(xs) {
+        Some(v) => print("got", v)
+        None => print("empty")
+    }
+}

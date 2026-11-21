@@ -1,0 +1,11 @@
+fn greet(name: str) -> str {
+    "Hello, " + name
+}
+
+fn main() {
+    let mut n = 0
+    while n < 3 {
+        print(greet("Russd"))
+        n = n + 1
+    }
+}

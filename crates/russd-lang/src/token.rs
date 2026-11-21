@@ -1,0 +1,85 @@
+use crate::span::Span;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenKind {
+    Ident(String),
+    Int { value: i64, suffix_i64: bool },
+    String(String),
+    Fn,
+    Let,
+    Mut,
+    If,
+    Else,
+    While,
+    For,
+    In,
+    Struct,
+    Enum,
+    Match,
+    Impl,
+    Return,
+    True,
+    False,
+    SelfValue,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Eq,
+    EqEq,
+    Bang,
+    BangEq,
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
+    And,
+    AndAnd,
+    OrOr,
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    LBracket,
+    RBracket,
+    Comma,
+    Dot,
+    Colon,
+    Semi,
+    Arrow,
+    FatArrow,
+    Question,
+    DotDot,
+    Eof,
+}
+
+impl TokenKind {
+    pub fn keyword(word: &str) -> Option<Self> {
+        Some(match word {
+            "fn" => Self::Fn,
+            "let" => Self::Let,
+            "mut" => Self::Mut,
+            "if" => Self::If,
+            "else" => Self::Else,
+            "while" => Self::While,
+            "for" => Self::For,
+            "in" => Self::In,
+            "struct" => Self::Struct,
+            "enum" => Self::Enum,
+            "match" => Self::Match,
+            "impl" => Self::Impl,
+            "return" => Self::Return,
+            "true" => Self::True,
+            "false" => Self::False,
+            "self" => Self::SelfValue,
+            _ => return None,
+        })
+    }
+}
