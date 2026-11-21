@@ -54,7 +54,7 @@ fn main() {
 
 ## 說明網站
 
-文件站在 `web/`（Next.js），部署目標是 **Vercel**（不是 GitHub Pages）。
+文件站在 `web/`（Next.js）。
 
 - `/howto-use/{zh,en,cn}` 如何使用
 - `/howto-configuration/{zh,en,cn}` 如何設定

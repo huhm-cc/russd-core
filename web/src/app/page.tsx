@@ -17,7 +17,7 @@ export default function Home() {
           Russd
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-          開源、語法接近 Rust、預設更安全。說明站部署在 Vercel。選語言開始：如何使用、如何設定、下載核心。
+          開源、語法接近 Rust、預設更安全。選語言開始：如何使用、如何設定、下載核心。
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link href="/howto-use/zh" className={cn(buttonVariants())}>

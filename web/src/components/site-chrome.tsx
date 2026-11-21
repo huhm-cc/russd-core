@@ -55,12 +55,11 @@ export function LangPills({
 }
 
 export function SiteFooter({ lang }: { lang: Lang }) {
-  const t = ui[lang];
+  void lang;
   return (
     <footer className="mt-auto border-t border-border">
       <div className="mx-auto max-w-5xl px-4 py-8 text-sm text-muted-foreground">
-        <p>{t.deployNote}</p>
-        <p className="mt-2">GPL-3.0 · Russd core</p>
+        <p>GPL-3.0 · Russd core</p>
       </div>
     </footer>
   );

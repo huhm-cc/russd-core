@@ -32,7 +32,6 @@ export const ui = {
     copy: "複製",
     copied: "已複製",
     lang: "語言",
-    deployNote: "本站部署於 Vercel，不是 GitHub Pages。",
   },
   en: {
     brand: "Russd",
@@ -45,7 +44,6 @@ export const ui = {
     copy: "Copy",
     copied: "Copied",
     lang: "Language",
-    deployNote: "This site is hosted on Vercel, not GitHub Pages.",
   },
   cn: {
     brand: "Russd",
@@ -58,7 +56,6 @@ export const ui = {
     copy: "复制",
     copied: "已复制",
     lang: "语言",
-    deployNote: "本站部署于 Vercel，不是 GitHub Pages。",
   },
 };
 
@@ -278,10 +275,9 @@ license = "GPL-3.0-only"
         ],
       },
       {
-        heading: "網站部署",
+        heading: "說明網站",
         body: [
-          "說明網站在 web/，以 Next.js 建置，部署目標是 Vercel（rootDirectory = web），不是 GitHub Pages。",
-          "回應帶 Content-Security-Policy、X-Content-Type-Options、Referrer-Policy 等安全標頭。",
+          "說明網站在 web/，以 Next.js 建置。回應帶 Content-Security-Policy、X-Content-Type-Options、Referrer-Policy 等安全標頭。",
         ],
       },
     ],
@@ -323,8 +319,7 @@ license = "GPL-3.0-only"
       {
         heading: "Website",
         body: [
-          "Docs live in web/ (Next.js) and deploy to Vercel with rootDirectory web — not GitHub Pages.",
-          "Responses include CSP and related security headers.",
+          "Docs live in web/ (Next.js). Responses include CSP and related security headers.",
         ],
       },
     ],
@@ -359,8 +354,8 @@ license = "GPL-3.0-only"
         ],
       },
       {
-        heading: "网站部署",
-        body: ["文档站点在 web/，部署到 Vercel，不是 GitHub Pages。"],
+        heading: "说明网站",
+        body: ["文档站点在 web/，以 Next.js 建置，回应带安全标头。"],
       },
     ],
   },
@@ -487,9 +482,9 @@ export const opensource = {
       cn: "欢迎 issue 与 pull request。请不要在没有设计讨论的情况下加入 unsafe 或生命周期语法。",
     },
     {
-      zh: "網站部署在 Vercel。原始碼託管可以使用 GitHub，但說明站本身不是 GitHub Pages。",
-      en: "The website is deployed on Vercel. Source may live on GitHub; the docs site is not GitHub Pages.",
-      cn: "网站部署在 Vercel。源码可以托管在 GitHub，但文档站不是 GitHub Pages。",
+      zh: "原始碼在 huhm-cc/russd-core。歡迎閱讀 LICENSE 後再改、再發佈。",
+      en: "Source is at huhm-cc/russd-core. Read LICENSE before modifying or redistributing.",
+      cn: "源码在 huhm-cc/russd-core。请先阅读 LICENSE 再修改或再发布。",
     },
   ],
 };
