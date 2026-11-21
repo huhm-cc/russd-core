@@ -56,7 +56,7 @@ fn main() {
 
 文件站在 `web/`（Next.js）。
 
-- `/howto-use/{zh,en,cn}` 如何使用
+- `/howto-use/{zh,en,cn}` 如何使用（語法、能做的事、限制）
 - `/howto-configuration/{zh,en,cn}` 如何設定
 - `/download-core/{zh,en,cn}` 下載核心
 - `/opensource` 開源授權

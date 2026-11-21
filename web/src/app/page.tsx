@@ -17,7 +17,7 @@ export default function Home() {
           Russd
         </h1>
         <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-          開源、語法接近 Rust、預設更安全。選語言開始：如何使用、如何設定、下載核心。
+          開源、語法接近 Rust、預設更安全。「如何使用」教語法、能做的事，以及一長串限制。
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link href="/howto-use/zh" className={cn(buttonVariants())}>
