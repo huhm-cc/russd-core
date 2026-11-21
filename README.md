@@ -6,19 +6,23 @@ v0.3 是最佳化編譯器：型別檢查之後做常數摺疊、內聯、死碼
 
 ## 安裝
 
-```bash
+`cargo` 一定要在 **倉庫根目錄**（有 `Cargo.toml` 的那個資料夾）執行。`git clone` 之後會多一層 `russd-core/`；若提示 `could not find Cargo.toml`，代表還停在上一層（例如 `D:\test`），請先 `cd russd-core`。
+
+PowerShell / cmd / bash 都一樣：
+
+```powershell
 git clone https://github.com/huhm-cc/russd-core
 cd russd-core
 cargo test --workspace
-# 把參數傳給 russd：`--` 後面直接給 .rsd（不必再寫 run）
 cargo run -- examples/hello.rsd
 cargo run -- examples/app.rsd
 cargo run -- test examples/lang_test.rsd
 cargo run -- opt examples/hello.rsd
 cargo run -- disasm examples/hello.rsd
-# 等同：cargo run -- run examples/hello.rsd
-# 不要寫 cargo run --run …（cargo 會當成自己的旗標，報 not found）
 ```
+
+`cargo run` 後面的 `--` 與檔名之間要有空白。不要寫 `cargo run --run`（Cargo 會當成自己的旗標）。
+`cargo run -- run examples/hello.rsd` 也可以，但必須先 `cd` 進這個倉庫。
 
 ```bash
 cargo install --path .

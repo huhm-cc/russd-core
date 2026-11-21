@@ -194,14 +194,17 @@ export const downloadCore: Record<Lang, Doc> = {
         body: [
           "倉庫：https://github.com/huhm-cc/russd-core",
           "授權：GNU GPL v3。克隆後請閱讀 LICENSE。",
+          "`git clone` 會在目前目錄下建立 `russd-core/`。接下來的 `cargo` 必須在那個資料夾裡跑。若出現 `could not find Cargo.toml`，代表還在上一層（例如 `D:\\test`），請先 `cd russd-core`。",
         ],
         code: {
-          title: "git clone",
+          title: "git clone（PowerShell / bash）",
           lang: "bash",
           text: `git clone https://github.com/huhm-cc/russd-core
 cd russd-core
+cargo test --workspace
+cargo run -- examples/hello.rsd
 cargo build --release
-./target/release/russd run examples/hello.rsd`,
+.\\target\\release\\russd.exe run examples/hello.rsd`,
         },
       },
       {
@@ -227,14 +230,19 @@ origin repo clone lan-b3w0h/russd-core`,
     sections: [
       {
         heading: "GitHub (source)",
-        body: ["Repository: https://github.com/huhm-cc/russd-core. License: GNU GPL v3."],
+        body: [
+          "Repository: https://github.com/huhm-cc/russd-core. License: GNU GPL v3.",
+          "`git clone` creates a `russd-core/` folder. Run every `cargo` command inside that folder. `could not find Cargo.toml` means you are still in the parent directory (for example `D:\\test`); `cd russd-core` first.",
+        ],
         code: {
-          title: "git clone",
+          title: "git clone (PowerShell / bash)",
           lang: "bash",
           text: `git clone https://github.com/huhm-cc/russd-core
 cd russd-core
+cargo test --workspace
+cargo run -- examples/hello.rsd
 cargo build --release
-./target/release/russd run examples/hello.rsd`,
+.\\target\\release\\russd.exe run examples/hello.rsd`,
         },
       },
       {
@@ -260,14 +268,19 @@ origin repo clone lan-b3w0h/russd-core`,
     sections: [
       {
         heading: "GitHub（源码）",
-        body: ["仓库：https://github.com/huhm-cc/russd-core。许可证：GNU GPL v3。"],
+        body: [
+          "仓库：https://github.com/huhm-cc/russd-core。许可证：GNU GPL v3。",
+          "`git clone` 会在当前目录下创建 `russd-core/`。之后的 `cargo` 必须在那个文件夹里运行。若出现 `could not find Cargo.toml`，说明还停在上一层（例如 `D:\\test`），请先 `cd russd-core`。",
+        ],
         code: {
-          title: "git clone",
+          title: "git clone（PowerShell / bash）",
           lang: "bash",
           text: `git clone https://github.com/huhm-cc/russd-core
 cd russd-core
+cargo test --workspace
+cargo run -- examples/hello.rsd
 cargo build --release
-./target/release/russd run examples/hello.rsd`,
+.\\target\\release\\russd.exe run examples/hello.rsd`,
         },
       },
       {
