@@ -2,7 +2,7 @@
 
 開源、語法接近 Rust 的靜態型別語言。核心在 [huhm-cc/russd-core](https://github.com/huhm-cc/russd-core)（**GPL-3.0**）。
 
-v0.2 覆蓋一門「能認真寫程式」的語言該有的六層（運算與控制流、模組化、執行期安全、編譯器管線、標準庫、開發工具）。它**不是** rustc/LLVM 等級的最佳化編譯器。
+v0.3 是最佳化編譯器：型別檢查之後做常數摺疊、內聯、死碼刪除，再產出 bytecode，由安全 VM 執行。它**不是** rustc/LLVM 等級的原生碼編譯器。
 
 ## 安裝
 
@@ -13,6 +13,7 @@ cargo test --workspace
 cargo run -- run examples/hello.rsd
 cargo run -- run examples/app.rsd
 cargo run -- test examples/lang_test.rsd
+cargo run -- opt examples/hello.rsd
 cargo run -- disasm examples/hello.rsd
 ```
 
@@ -42,11 +43,12 @@ fn main() {
 
 | 指令 | 用途 |
 |------|------|
-| `russd run f.rsd -- args` | 執行（支援 `mod`、命令列參數 `args()`） |
+| `russd run f.rsd [-O0|-O1|-O2] -- args` | 執行（預設 O2 最佳化） |
+| `russd opt f.rsd` | 最佳化統計 + bytecode |
 | `russd check` | 只做 lex/parse/type/borrow |
 | `russd test` | 跑 `test_*` |
 | `russd fmt` | 格式化 |
-| `russd disasm` | 印 bytecode |
+| `russd disasm` | 印最佳化後 bytecode |
 | `russd complete` | 符號補全 |
 | `russd pkg init` | 寫 `russd.toml` |
 

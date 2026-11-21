@@ -4,11 +4,11 @@ version = 4
 
 [[package]]
 name = "russd"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "russd-lang",
 ]
 
 [[package]]
 name = "russd-lang"
-version = "0.1.0"
+version = "0.3.0"

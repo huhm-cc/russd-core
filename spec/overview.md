@@ -1,8 +1,8 @@
-# Russd 語言一覽（v0.2）
+# Russd 語言一覽（v0.3）
 
 Russd 看起來像簡化的 Rust：`fn`、`let` / `let mut`、結構、列舉、`match`。
 
-核心管線：`原始碼 → Token（lexer）→ AST（parser）→ 型別/所有權檢查 → bytecode 產物 + 執行期 VM`。
+核心管線：`原始碼 → Token → AST → 型別/所有權檢查 → 最佳化（O2）→ bytecode → 安全 VM`。
 
 ## 1. 基礎運算與控制流程
 
@@ -23,10 +23,13 @@ Russd 看起來像簡化的 Rust：`fn`、`let` / `let mut`、結構、列舉、
 - 溢位/除零/越界 = 錯誤；`Result`/`Option`/`?`/`panic`/`assert`
 - 並行：`spawn` / `join`（OS thread）；非同步 I/O：`http_get`、`read_file`/`write_file`、`sleep_ms`
 
-## 4. 編譯器核心
+## 4. 編譯器核心（最佳化編譯器）
 
 - lexer / parser / AST / 語意與型別檢查
-- `russd disasm` 產出函式 bytecode；執行期是安全的堆疊/環境 VM（Rust 實作）
+- **O1**：常數摺疊、代數簡化（`x+0`、`x*1`、`x&&true`）、`if true/false`、`while false`
+- **O2**（預設）：再加上小型函式內聯、不可變常數 copy-prop、無副作用死綁定刪除、bytecode peephole
+- `russd run -O0` 關閉最佳化；`russd opt file.rsd` 印統計與 bytecode
+- 溢位/除零**不會**摺成繞回；執行期仍是安全 VM，不是 LLVM 機器碼
 
 ## 5. 標準庫與跨平台
 
@@ -40,6 +43,7 @@ Russd 看起來像簡化的 Rust：`fn`、`let` / `let mut`、結構、列舉、
 ## 6. 開發者工具
 
 - `russd` REPL（會累積 `fn`/`struct`）
+- `russd opt`：最佳化統計與 bytecode
 - `russd test`：執行名稱為 `test_*` 的函式
 - `russd fmt` 格式化
 - `russd complete` 給編輯器補全

@@ -51,6 +51,47 @@ pub fn compile_bytecode(checked: &CheckedProgram) -> BytecodeProgram {
     BytecodeProgram { chunks }
 }
 
+fn peephole(ops: Vec<Op>) -> Vec<Op> {
+    let mut out = ops;
+    let mut changed = true;
+    while changed {
+        changed = false;
+        let mut next = Vec::with_capacity(out.len());
+        let mut i = 0;
+        while i < out.len() {
+            if i + 2 < out.len() {
+                if let (Op::Const(a), Op::Const(b), bin) = (&out[i], &out[i + 1], &out[i + 2]) {
+                    if let Some(v) = fold_const_op(a, b, bin) {
+                        next.push(Op::Const(v));
+                        i += 3;
+                        changed = true;
+                        continue;
+                    }
+                }
+            }
+            next.push(out[i].clone());
+            i += 1;
+        }
+        out = next;
+    }
+    out
+}
+
+fn fold_const_op(a: &Value, b: &Value, op: &Op) -> Option<Value> {
+    match (a, b, op) {
+        (Value::I32(x), Value::I32(y), Op::Add) => x.checked_add(*y).map(Value::I32),
+        (Value::I32(x), Value::I32(y), Op::Sub) => x.checked_sub(*y).map(Value::I32),
+        (Value::I32(x), Value::I32(y), Op::Mul) => x.checked_mul(*y).map(Value::I32),
+        (Value::I32(x), Value::I32(y), Op::Div) if *y != 0 => x.checked_div(*y).map(Value::I32),
+        (Value::I64(x), Value::I64(y), Op::Add) => x.checked_add(*y).map(Value::I64),
+        (Value::F64(x), Value::F64(y), Op::Add) => Some(Value::F64(x + y)),
+        (Value::F64(x), Value::F64(y), Op::Sub) => Some(Value::F64(x - y)),
+        (Value::F64(x), Value::F64(y), Op::Mul) => Some(Value::F64(x * y)),
+        (Value::Str(x), Value::Str(y), Op::Add) => Some(Value::Str(format!("{x}{y}"))),
+        _ => None,
+    }
+}
+
 fn method_owner(f: &FnDef) -> &str {
     f.params
         .first()
@@ -67,7 +108,7 @@ fn compile_fn(f: &FnDef) -> Chunk {
     ops.push(Op::Return);
     Chunk {
         name: f.name.clone(),
-        ops,
+        ops: peephole(ops),
     }
 }
 

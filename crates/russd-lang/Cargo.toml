@@ -1,8 +1,8 @@
 [package]
 name = "russd-lang"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 license = "GPL-3.0-only"
-description = "Lexer, parser, type checker, and interpreter for Russd"
+description = "Lexer, parser, type checker, optimizer, and VM for Russd"
 
 [dependencies]

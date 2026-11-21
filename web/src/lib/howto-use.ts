@@ -266,7 +266,7 @@ const limitsRuntimeZh = [
   "沒有讀環境變數、沒有標準輸入 API、沒有開任意 TCP/UDP socket、沒有執行 shell。",
   "`str.len()` 是位元組數，不是 Unicode 字數。沒有字元迭代。",
   "`print` 把參數用空白接起來並換行。沒有 `println!` 格式化。",
-  "執行器是安全的解譯 VM + bytecode，不是 LLVM 機器碼。不要期待「世界最快」。",
+  "執行器是最佳化編譯器 + 安全 VM，不是 LLVM 機器碼。不要期待原生碼那種「世界最快」。",
 ];
 
 const limitsSyntaxEn = [
@@ -310,7 +310,7 @@ const limitsRuntimeEn = [
   "No env vars, no stdin API, no raw TCP/UDP, no shell.",
   "`str.len()` is bytes, not Unicode scalar count. No character iteration.",
   "`print` joins arguments with spaces and adds a newline. No `println!` formatting.",
-  "The engine is a tree-walk / bytecode VM, not LLVM native code. It is not “the world’s fastest language.”",
+  "The engine is an optimizing compiler plus a safe VM, not LLVM native code. It is not “the world’s fastest language.”",
 ];
 
 const limitsSyntaxCn = [
@@ -354,7 +354,7 @@ const limitsRuntimeCn = [
   "没有读环境变量、没有标准输入 API、没有任意 TCP/UDP、没有执行 shell。",
   "`str.len()` 是字节数，不是 Unicode 字符数。",
   "`print` 用空格拼接参数并换行。没有 `println!` 格式化。",
-  "执行器是安全的解释 VM + bytecode，不是 LLVM 机器码。",
+  "执行器是优化编译器 + 安全 VM，不是 LLVM 机器码。",
 ];
 
 export const howtoUse: Record<Lang, Doc> = {
@@ -370,6 +370,20 @@ export const howtoUse: Record<Lang, Doc> = {
           "先跑起來：`cargo run -- run examples/hello.rsd`。參數寫在 `--` 後面，程式裡用 `args()` 讀成 `Vec[str]`。",
         ],
         code: { title: "hello.rsd", lang: "rsd", text: hello },
+      },
+      {
+        heading: "編譯器會最佳化",
+        body: [
+          "Russd 是最佳化編譯器。預設 `-O2`：常數摺疊、`x+0`/`x*1` 這類代數簡化、`if true` 刪掉死分支、小型函式內聯、沒用到的 `let` 刪除、bytecode peephole。",
+          "`russd run f.rsd -O0` 關掉最佳化。`russd opt f.rsd` 印摺疊/內聯/刪碼次數與 bytecode。溢位與除零不會被摺成繞回。後端仍是安全 VM，不是 LLVM 原生碼。",
+        ],
+        code: {
+          title: "看最佳化",
+          lang: "bash",
+          text: `russd opt examples/hello.rsd
+russd run examples/fizzbuzz.rsd -O2
+russd run examples/fizzbuzz.rsd -O0`,
+        },
       },
       {
         heading: "2. 型別",
@@ -526,6 +540,20 @@ export const howtoUse: Record<Lang, Doc> = {
         code: { title: "hello.rsd", lang: "rsd", text: hello },
       },
       {
+        heading: "The compiler optimizes",
+        body: [
+          "Russd is an optimizing compiler. Default `-O2`: constant folding, algebraic identities (`x+0`, `x*1`), dead `if` branches, small inlining, unused `let` removal, bytecode peephole.",
+          "`russd run f.rsd -O0` turns passes off. `russd opt f.rsd` prints fold/inline/dce counts and bytecode. Overflow and division by zero are not folded into wraparound. The backend is still a safe VM, not LLVM native code.",
+        ],
+        code: {
+          title: "inspect optimizations",
+          lang: "bash",
+          text: `russd opt examples/hello.rsd
+russd run examples/fizzbuzz.rsd -O2
+russd run examples/fizzbuzz.rsd -O0`,
+        },
+      },
+      {
         heading: "2. Types",
         body: [
           "Built-ins: `i32` `i64` `f64` `bool` `str` `()` `Vec[T]` `Map[V]` `Option[T]` `Result[T,E]`. Type arguments use square brackets.",
@@ -676,6 +704,20 @@ export const howtoUse: Record<Lang, Doc> = {
           "先跑起来：`cargo run -- run examples/hello.rsd`。参数写在 `--` 后面，用 `args()` 读成 `Vec[str]`。",
         ],
         code: { title: "hello.rsd", lang: "rsd", text: hello },
+      },
+      {
+        heading: "编译器会做优化",
+        body: [
+          "Russd 是优化编译器。默认 `-O2`：常数折叠、`x+0`/`x*1` 代数简化、`if true` 删死分支、小函数内联、没用到的 `let` 删除、bytecode peephole。",
+          "`russd run f.rsd -O0` 关掉优化。`russd opt f.rsd` 打印折叠/内联/删码次数与 bytecode。溢出与除零不会折成回绕。后端仍是安全 VM，不是 LLVM 机器码。",
+        ],
+        code: {
+          title: "看优化",
+          lang: "bash",
+          text: `russd opt examples/hello.rsd
+russd run examples/fizzbuzz.rsd -O2
+russd run examples/fizzbuzz.rsd -O0`,
+        },
       },
       {
         heading: "2. 类型",

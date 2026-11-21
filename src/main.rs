@@ -1,6 +1,6 @@
 use russd_lang::{
-    compile, compile_bytecode, compile_path, format_source, lex, parse_repl_line, run,
-    run_with_args, ReplInput, Vm,
+    compile, compile_bytecode, compile_path, compile_path_with_opt, format_source, lex, optimize,
+    parse_repl_line, run, run_with_args, OptLevel, ReplInput, Vm,
 };
 use std::env;
 use std::fs;
@@ -20,6 +20,7 @@ fn main() {
     let cmd = args.remove(0);
     match cmd.as_str() {
         "run" => cmd_run(&args),
+        "opt" => cmd_opt(&args),
         "check" => cmd_check(&args),
         "test" => cmd_test(&args),
         "fmt" => cmd_fmt(&args),
@@ -28,7 +29,7 @@ fn main() {
         "complete" => cmd_complete(&args),
         "debug" => cmd_debug(&args),
         "--help" | "-h" | "help" => print_help(),
-        "--version" | "-V" | "version" => println!("russd 0.2.0"),
+        "--version" | "-V" | "version" => println!("russd 0.3.0"),
         other if other.ends_with(".rsd") => cmd_run(
             &std::iter::once(other.to_string())
                 .chain(args)
@@ -44,19 +45,23 @@ fn main() {
 fn print_help() {
     println!(
         "\
-Russd 0.2 — 開源、Rust 風格、靜態型別語言（GPL-3.0）
+Russd 0.3 — 開源、Rust 風格、最佳化編譯器（GPL-3.0）
 
 用法:
   russd                      REPL
-  russd run <file.rsd> [-- args...]
+  russd run <file.rsd> [-O0|-O1|-O2] [-- args...]
+  russd opt <file.rsd>       顯示最佳化統計與 bytecode
   russd check <file.rsd>
   russd test [file.rsd]      執行 test_ 開頭的函式
   russd fmt <file.rsd>
-  russd disasm <file.rsd>    顯示 bytecode
+  russd disasm <file.rsd>    顯示最佳化後 bytecode
   russd debug <file.rsd>     追蹤函式呼叫
   russd complete <file.rsd>  符號清單（編輯器補全）
   russd pkg init|info
   russd help
+
+預設 -O2：常數摺疊、代數簡化、條件摺疊、內聯、死碼刪除、copy-prop、bytecode peephole。
+-O0 關閉最佳化。執行期仍是安全 VM，不是 LLVM 機器碼。
 "
     );
 }
@@ -69,23 +74,55 @@ fn split_passthrough(args: &[String]) -> (Vec<String>, Vec<String>) {
     }
 }
 
+fn take_opt_level(args: &[String]) -> (OptLevel, Vec<String>) {
+    let mut level = OptLevel::O2;
+    let mut rest = Vec::new();
+    for a in args {
+        if let Some(l) = OptLevel::parse(a) {
+            level = l;
+        } else {
+            rest.push(a.clone());
+        }
+    }
+    (level, rest)
+}
+
 fn cmd_run(args: &[String]) {
-    let (files, rest) = split_passthrough(args);
+    let (files, passthrough) = split_passthrough(args);
+    let (level, files) = take_opt_level(&files);
     let path = files.first().cloned().unwrap_or_else(|| {
         print_help();
         process::exit(2);
     });
-    let checked = match compile_path(Path::new(&path)) {
+    let checked = match compile_path_with_opt(Path::new(&path), level) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("{e}");
             process::exit(1);
         }
     };
-    if let Err(d) = run_with_args(&checked, rest) {
+    if let Err(d) = run_with_args(&checked, passthrough) {
         eprintln!("{}", d.message);
         process::exit(1);
     }
+}
+
+fn cmd_opt(args: &[String]) {
+    let (level, files) = take_opt_level(args);
+    let path = files.first().cloned().unwrap_or_else(|| {
+        print_help();
+        process::exit(2);
+    });
+    let mut checked = match compile_path_with_opt(Path::new(&path), OptLevel::O0) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("{e}");
+            process::exit(1);
+        }
+    };
+    let stats = optimize(&mut checked, level);
+    println!("{}", stats.report(level));
+    print!("{}", compile_bytecode(&checked).disassemble());
 }
 
 fn cmd_check(args: &[String]) {

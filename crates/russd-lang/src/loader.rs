@@ -2,26 +2,37 @@ use crate::ast::{Item, Program};
 use crate::check::{check, CheckedProgram};
 use crate::diag::Diagnostic;
 use crate::lexer::lex;
+use crate::opt::{optimize, OptLevel};
 use crate::parser::parse;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 pub fn compile_path(path: &Path) -> Result<CheckedProgram, String> {
+    compile_path_with_opt(path, OptLevel::O2)
+}
+
+pub fn compile_path_with_opt(path: &Path, level: OptLevel) -> Result<CheckedProgram, String> {
     let source =
         std::fs::read_to_string(path).map_err(|e| format!("無法讀取 {}: {e}", path.display()))?;
-    match compile_path_inner(path, &source) {
+    match compile_path_inner(path, &source, level) {
         Ok(c) => Ok(c),
         Err(d) => Err(d.render(&path.display().to_string(), &source)),
     }
 }
 
-fn compile_path_inner(path: &Path, source: &str) -> Result<CheckedProgram, Diagnostic> {
+fn compile_path_inner(
+    path: &Path,
+    source: &str,
+    level: OptLevel,
+) -> Result<CheckedProgram, Diagnostic> {
     let tokens = lex(source)?;
     let program = parse(&tokens)?;
     let mut seen = HashSet::new();
     seen.insert(path.canonicalize().unwrap_or_else(|_| path.to_path_buf()));
     let program = expand_mods(program, path, &mut seen)?;
-    check(program)
+    let mut checked = check(program)?;
+    optimize(&mut checked, level);
+    Ok(checked)
 }
 
 fn expand_mods(

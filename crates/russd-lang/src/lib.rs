@@ -6,6 +6,7 @@ mod fmt;
 mod interp;
 mod lexer;
 mod loader;
+mod opt;
 mod sandbox;
 mod parser;
 mod span;
@@ -18,15 +19,22 @@ pub use diag::{render_all, Diagnostic};
 pub use fmt::format_source;
 pub use interp::{run, run_with_args, Value, Vm};
 pub use lexer::lex;
-pub use loader::compile_path;
+pub use loader::{compile_path, compile_path_with_opt};
+pub use opt::{optimize, OptLevel, OptStats};
 pub use parser::{parse_repl_line, ReplInput};
 
 use crate::parser::parse;
 
 pub fn compile(source: &str) -> Result<CheckedProgram, Diagnostic> {
+    compile_with_opt(source, OptLevel::O2)
+}
+
+pub fn compile_with_opt(source: &str, level: OptLevel) -> Result<CheckedProgram, Diagnostic> {
     let tokens = lex(source)?;
     let program = parse(&tokens)?;
-    check(program)
+    let mut checked = check(program)?;
+    optimize(&mut checked, level);
+    Ok(checked)
 }
 
 pub fn compile_without_main(source: &str) -> Result<CheckedProgram, Diagnostic> {
@@ -48,7 +56,9 @@ pub fn compile_without_main(source: &str) -> Result<CheckedProgram, Diagnostic> 
             span: span::Span::dummy(),
         }));
     }
-    check(program)
+    let mut checked = check(program)?;
+    optimize(&mut checked, OptLevel::O2);
+    Ok(checked)
 }
 
 pub fn run_source(filename: &str, source: &str) -> Result<String, String> {
