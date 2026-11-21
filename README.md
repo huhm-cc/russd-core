@@ -10,11 +10,14 @@ v0.3 是最佳化編譯器：型別檢查之後做常數摺疊、內聯、死碼
 git clone https://github.com/huhm-cc/russd-core
 cd russd-core
 cargo test --workspace
-cargo run -- run examples/hello.rsd
-cargo run -- run examples/app.rsd
+# 把參數傳給 russd：`--` 後面直接給 .rsd（不必再寫 run）
+cargo run -- examples/hello.rsd
+cargo run -- examples/app.rsd
 cargo run -- test examples/lang_test.rsd
 cargo run -- opt examples/hello.rsd
 cargo run -- disasm examples/hello.rsd
+# 等同：cargo run -- run examples/hello.rsd
+# 不要寫 cargo run --run …（cargo 會當成自己的旗標，報 not found）
 ```
 
 ```bash

@@ -17,7 +17,10 @@ fn main() {
         }
         return;
     }
-    let cmd = args.remove(0);
+    let raw = args.remove(0);
+    // `cargo run --run file.rsd` glues Cargo's `--` to our `run` subcommand.
+    // Accept `--run` / `-run` as `run` so that form still executes.
+    let cmd = normalize_cmd(&raw);
     match cmd.as_str() {
         "run" => cmd_run(&args),
         "opt" => cmd_opt(&args),
@@ -28,18 +31,28 @@ fn main() {
         "pkg" => cmd_pkg(&args),
         "complete" => cmd_complete(&args),
         "debug" => cmd_debug(&args),
-        "--help" | "-h" | "help" => print_help(),
-        "--version" | "-V" | "version" => println!("russd 0.3.0"),
-        other if other.ends_with(".rsd") => cmd_run(
-            &std::iter::once(other.to_string())
+        "help" | "h" => print_help(),
+        "version" | "V" => println!("russd 0.3.0"),
+        other if other.ends_with(".rsd") || Path::new(other).exists() => cmd_run(
+            &std::iter::once(raw)
                 .chain(args)
                 .collect::<Vec<_>>(),
         ),
-        _ => {
+        other => {
+            eprintln!("error: 找不到指令 `{other}`");
+            eprintln!("提示: 用 `russd run <file.rsd>`。若透過 cargo，請寫 `cargo run -- examples/hello.rsd`");
+            eprintln!("      （`--` 與 `run` 中間要有空白；不要寫成 `cargo run --run`。）");
             print_help();
             process::exit(2);
         }
     }
+}
+
+fn normalize_cmd(raw: &str) -> String {
+    let s = raw.trim();
+    let s = s.strip_prefix("--").unwrap_or(s);
+    let s = s.strip_prefix('-').unwrap_or(s);
+    s.to_string()
 }
 
 fn print_help() {
@@ -50,6 +63,8 @@ Russd 0.3 — 開源、Rust 風格、最佳化編譯器（GPL-3.0）
 用法:
   russd                      REPL
   russd run <file.rsd> [-O0|-O1|-O2] [-- args...]
+  russd --run <file.rsd>     同上（避免被 cargo 吃掉 `run`）
+  cargo run -- <file.rsd>    從原始碼執行（`--` 後直接給檔名）
   russd opt <file.rsd>       顯示最佳化統計與 bytecode
   russd check <file.rsd>
   russd test [file.rsd]      執行 test_ 開頭的函式

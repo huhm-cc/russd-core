@@ -1,0 +1,4 @@
+[alias]
+# cargo russd examples/hello.rsd
+# cargo russd run examples/hello.rsd
+russd = "run --bin russd --"
