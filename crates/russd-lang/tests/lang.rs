@@ -219,6 +219,26 @@ fn main() {
 }
 
 #[test]
+fn sandbox_rejects_escape() {
+    let out = run_ok(
+        r#"
+fn main() {
+    match read_file("../Cargo.toml") {
+        Ok(_) => print("leaked")
+        Err(_) => print("blocked")
+    }
+    match read_file("/etc/passwd") {
+        Ok(_) => print("abs")
+        Err(_) => print("noabs")
+    }
+}
+"#,
+    );
+    assert!(out.contains("blocked"), "{out}");
+    assert!(out.contains("noabs"), "{out}");
+}
+
+#[test]
 fn fizz_first_lines() {
     let out = run_ok(
         r#"

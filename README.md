@@ -51,3 +51,20 @@ fn main() {
 | `russd pkg init` | 寫 `russd.toml` |
 
 編輯器：把 `editors/russd.tmLanguage.json` 加到支援 TextMate grammar 的 IDE。
+
+## 說明網站
+
+文件站在 `web/`（Next.js），部署目標是 **Vercel**（不是 GitHub Pages）。
+
+- `/howto-use/{zh,en,cn}` 如何使用
+- `/howto-configuration/{zh,en,cn}` 如何設定
+- `/download-core/{zh,en,cn}` 下載核心
+- `/opensource` 開源授權
+
+本機：
+
+```bash
+cd web
+npm install
+npm run dev
+```

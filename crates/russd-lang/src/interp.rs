@@ -484,6 +484,12 @@ impl Vm {
                     Value::Str(s) => s,
                     _ => return Err(Diagnostic::new(span, "`read_file` 路徑必須是 str")),
                 };
+                let path = match crate::sandbox::sandbox_path(&path) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        return Ok(Flow::Value(Value::Result(Err(Box::new(Value::Str(e))))))
+                    }
+                };
                 return Ok(Flow::Value(match std::fs::read_to_string(&path) {
                     Ok(s) => Value::Result(Ok(Box::new(Value::Str(s)))),
                     Err(e) => Value::Result(Err(Box::new(Value::Str(e.to_string())))),
@@ -495,6 +501,17 @@ impl Vm {
                     _ => return Err(Diagnostic::new(span, "`write_file` 路徑必須是 str")),
                 };
                 let content = self.val(&args[1])?.to_string();
+                if content.len() > crate::sandbox::MAX_WRITE_BYTES {
+                    return Ok(Flow::Value(Value::Result(Err(Box::new(Value::Str(
+                        "寫入超過 1MB 上限".into(),
+                    ))))));
+                }
+                let path = match crate::sandbox::sandbox_path(&path) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        return Ok(Flow::Value(Value::Result(Err(Box::new(Value::Str(e))))))
+                    }
+                };
                 return Ok(Flow::Value(match std::fs::write(&path, content) {
                     Ok(()) => Value::Result(Ok(Box::new(Value::Unit))),
                     Err(e) => Value::Result(Err(Box::new(Value::Str(e.to_string())))),
@@ -556,6 +573,7 @@ impl Vm {
                     Value::I64(n) => n.max(0) as u64,
                     _ => return Err(Diagnostic::new(span, "`sleep_ms` 需要整數")),
                 };
+                let n = n.min(crate::sandbox::MAX_SLEEP_MS);
                 std::thread::sleep(std::time::Duration::from_millis(n));
                 return Ok(Flow::Value(Value::Unit));
             }
@@ -571,6 +589,9 @@ impl Vm {
                     Value::Str(s) => s,
                     _ => return Err(Diagnostic::new(span, "`spawn` 需要函式名稱")),
                 };
+                if !crate::sandbox::safe_ident(&fname) {
+                    return Err(Diagnostic::new(span, "`spawn` 函式名稱不合法"));
+                }
                 let f = self
                     .functions
                     .get(&fname)
@@ -1200,30 +1221,63 @@ fn http_get(url: &str) -> Value {
 }
 
 fn http_get_inner(url: &str) -> Result<String, String> {
+    if url.len() > 2048 {
+        return Err("URL 過長".into());
+    }
     let rest = url
         .strip_prefix("http://")
-        .ok_or_else(|| "只支援 http:// URL（v0 不內建 TLS）".to_string())?;
+        .ok_or_else(|| "只支援 http:// URL（不內建 TLS，且拒絕其他協定）".to_string())?;
     let (hostport, path) = match rest.split_once('/') {
         Some((h, p)) => (h, format!("/{p}")),
         None => (rest, "/".to_string()),
     };
+    if path.contains('\n') || path.contains('\r') {
+        return Err("URL 含有非法字元".into());
+    }
     let (host, port) = if let Some((h, p)) = hostport.split_once(':') {
         (h, p.parse::<u16>().map_err(|e| e.to_string())?)
     } else {
         (hostport, 80)
     };
+    if port != 80 {
+        return Err("只允許連接埠 80".into());
+    }
+    crate::sandbox::is_public_host(host)?;
     use std::io::{Read, Write};
-    let mut stream = std::net::TcpStream::connect((host, port)).map_err(|e| e.to_string())?;
+    use std::net::ToSocketAddrs;
+    use std::time::Duration;
+    let addr = (host, port)
+        .to_socket_addrs()
+        .map_err(|e| e.to_string())?
+        .next()
+        .ok_or_else(|| "無法解析主機".to_string())?;
+    let mut stream = std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(5))
+        .map_err(|e| e.to_string())?;
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
     let req = format!("GET {path} HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n");
     stream
         .write_all(req.as_bytes())
         .map_err(|e| e.to_string())?;
-    let mut buf = String::new();
-    stream.read_to_string(&mut buf).map_err(|e| e.to_string())?;
-    if let Some((_, body)) = buf.split_once("\r\n\r\n") {
+    let mut buf = Vec::new();
+    let mut tmp = [0u8; 4096];
+    loop {
+        match stream.read(&mut tmp) {
+            Ok(0) => break,
+            Ok(n) => {
+                buf.extend_from_slice(&tmp[..n]);
+                if buf.len() > crate::sandbox::MAX_HTTP_BYTES {
+                    return Err("回應超過大小上限".into());
+                }
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    let text = String::from_utf8_lossy(&buf).into_owned();
+    if let Some((_, body)) = text.split_once("\r\n\r\n") {
         Ok(body.to_string())
     } else {
-        Ok(buf)
+        Ok(text)
     }
 }
 

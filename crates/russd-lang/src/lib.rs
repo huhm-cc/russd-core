@@ -6,6 +6,7 @@ mod fmt;
 mod interp;
 mod lexer;
 mod loader;
+mod sandbox;
 mod parser;
 mod span;
 mod token;
