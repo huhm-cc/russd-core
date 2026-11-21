@@ -1,0 +1,27 @@
+mod html
+mod board
+mod pages
+
+fn pick_i32(raw: str, fallback: i32) -> i32 {
+    match raw.parse_i32() {
+        Ok(n) => n
+        Err(_) => fallback
+    }
+}
+
+fn main() {
+    let mut port = 4371
+    let mut max_n = 0
+    let av = args()
+    if av.len() > 0 {
+        port = pick_i32(av[0], 4371)
+    }
+    if av.len() > 1 {
+        max_n = pick_i32(av[1], 0)
+    }
+    print("啟動工作臺，連接埠", port)
+    match http_serve(port, "on_request", max_n) {
+        Ok(msg) => print(msg)
+        Err(e) => print(e)
+    }
+}

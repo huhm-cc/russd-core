@@ -3,6 +3,7 @@ mod bytecode;
 mod check;
 mod diag;
 mod fmt;
+mod http_server;
 mod interp;
 mod lexer;
 mod loader;

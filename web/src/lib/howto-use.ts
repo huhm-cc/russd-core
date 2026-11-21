@@ -204,19 +204,20 @@ fn main() {
     join(id)
 }`;
 
-const io = `fn main() {
+const io = `fn on_request(method: str, path: str, query: str, body: str) -> str {
+    "<p>" + path + "</p>"
+}
+
+fn main() {
     match write_file("out.txt", "hello") {
         Ok(_) => print("wrote")
-        Err(e) => print(e)
-    }
-    match read_file("out.txt") {
-        Ok(s) => print(s)
         Err(e) => print(e)
     }
     match http_get("http://example.com/") {
         Ok(body) => print(body.len())
         Err(e) => print(e)
     }
+    http_serve(4371, "on_request")
 }`;
 
 const tests = `fn test_add() {
@@ -260,10 +261,12 @@ const limitsRuntimeZh = [
   "`read_file` / `write_file` 只能碰工作目錄內的相對路徑。絕對路徑、`..`、超出 cwd 一律拒絕。",
   "單次寫入上限 1 MB。",
   "`http_get` 只接受 `http://`（沒有 TLS、沒有 HTTPS）、只連埠 80、拒絕 localhost / 私有網段 / DNS 指到內網。URL 最長 2048。回應最多 256 KB。逾時約 5 秒。",
+  "`http_serve(port, handler)` 只綁 `127.0.0.1`，埠 1024–49151。`handler` 必須是 `fn(method, path, query, body) -> str`。第三個參數可限制請求次數。沒有 HTTPS、沒有任意 socket。完整範例：`examples/site/`。",
+  "`url_decode` 解 `application/x-www-form-urlencoded`（`+` 與 `%XX`）。",
   "`sleep_ms` 最多睡 5000 毫秒，再大也會被截斷。",
   "`spawn(\"name\")` 的名稱必須是 ≤64 字元的 ASCII 識別字，對應現有無參數函式。不能傳參數進執行緒，也不能 spawn 作業系統指令。",
   "`extern_call` 白名單只有 `sin` `cos` `sqrt` `floor` `ceil` `pow` `abs`。不能 `dlopen`、不能呼叫任意 C 函式。",
-  "沒有讀環境變數、沒有標準輸入 API、沒有開任意 TCP/UDP socket、沒有執行 shell。",
+  "沒有讀環境變數、沒有標準輸入 API、沒有任意 TCP/UDP（只有 `http_get` 與本機 `http_serve`）、沒有執行 shell。",
   "`str.len()` 是位元組數，不是 Unicode 字數。沒有字元迭代。",
   "`print` 把參數用空白接起來並換行。沒有 `println!` 格式化。",
   "執行器是最佳化編譯器 + 安全 VM，不是 LLVM 機器碼。不要期待原生碼那種「世界最快」。",
@@ -304,10 +307,12 @@ const limitsRuntimeEn = [
   "`read_file` / `write_file` only accept relative paths inside the working directory. Absolute paths and `..` are rejected.",
   "A single write is capped at 1 MB.",
   "`http_get` is `http://` only (no TLS/HTTPS), port 80 only, and it refuses localhost, private networks, and DNS that resolves private. URL max 2048 bytes, body max 256 KB, timeout about 5s.",
+  "`http_serve(port, handler)` binds `127.0.0.1` only, ports 1024–49151. The handler must be `fn(method, path, query, body) -> str`. An optional third argument caps how many requests to accept. No HTTPS, no raw sockets. See `examples/site/`.",
+  "`url_decode` decodes form URLs (`+` and `%XX`).",
   "`sleep_ms` is capped at 5000 ms.",
   "`spawn(\"name\")` must be a ≤64-character ASCII identifier naming an existing zero-argument function. You cannot pass thread arguments or spawn OS processes.",
   "`extern_call` is a whitelist: `sin` `cos` `sqrt` `floor` `ceil` `pow` `abs`. No `dlopen`, no arbitrary C.",
-  "No env vars, no stdin API, no raw TCP/UDP, no shell.",
+  "No env vars, no stdin API, no arbitrary TCP/UDP (only `http_get` and loopback `http_serve`), no shell.",
   "`str.len()` is bytes, not Unicode scalar count. No character iteration.",
   "`print` joins arguments with spaces and adds a newline. No `println!` formatting.",
   "The engine is an optimizing compiler plus a safe VM, not LLVM native code. It is not “the world’s fastest language.”",
@@ -348,10 +353,12 @@ const limitsRuntimeCn = [
   "`read_file` / `write_file` 只能碰工作目录内的相对路径。绝对路径、`..` 一律拒绝。",
   "单次写入上限 1 MB。",
   "`http_get` 只接受 `http://`（没有 TLS/HTTPS）、只连端口 80、拒绝 localhost / 私有网段。URL 最长 2048。响应最多 256 KB。超时约 5 秒。",
+  "`http_serve(port, handler)` 只绑定 `127.0.0.1`，端口 1024–49151。处理函数必须是 `fn(method, path, query, body) -> str`。完整例子：`examples/site/`。",
+  "`url_decode` 解码表单 URL（`+` 与 `%XX`）。",
   "`sleep_ms` 最多睡 5000 毫秒。",
   "`spawn(\"name\")` 必须是 ≤64 字符的 ASCII 标识符，对应已有无参数函数。不能传参数进线程，也不能 spawn 操作系统命令。",
   "`extern_call` 白名单只有 `sin` `cos` `sqrt` `floor` `ceil` `pow` `abs`。不能 `dlopen`。",
-  "没有读环境变量、没有标准输入 API、没有任意 TCP/UDP、没有执行 shell。",
+  "没有读环境变量、没有标准输入 API、没有任意 TCP/UDP（只有 `http_get` 和本机 `http_serve`）、没有执行 shell。",
   "`str.len()` 是字节数，不是 Unicode 字符数。",
   "`print` 用空格拼接参数并换行。没有 `println!` 格式化。",
   "执行器是优化编译器 + 安全 VM，不是 LLVM 机器码。",
@@ -499,7 +506,7 @@ russd run examples/fizzbuzz.rsd -O0`,
       {
         heading: "16. 檔案與 HTTP",
         body: [
-          "I/O 回 `Result`。路徑與網路都有沙盒，失敗是 `Err`，不是默默讀到系統檔。細節見下一節限制清單。",
+          "I/O 回 `Result`。路徑與網路都有沙盒，失敗是 `Err`，不是默默讀到系統檔。`http_serve` 在本機開 HTTP/1.0。完整網站範例在 `examples/site/`（路由、FizzBuzz、留言板、`/api/stats`）。細節見下一節限制清單。",
         ],
         code: { title: "檔案 / HTTP", lang: "rsd", text: io },
       },
@@ -667,7 +674,7 @@ russd run examples/fizzbuzz.rsd -O0`,
       {
         heading: "16. Files and HTTP",
         body: [
-          "I/O returns `Result`. Paths and the network are sandboxed. Failures are `Err`. The next sections list the hard caps.",
+          "I/O returns `Result`. Paths and the network are sandboxed. `http_serve` is a loopback HTTP/1.0 server. A full sample site lives in `examples/site/` (routing, FizzBuzz, guestbook, `/api/stats`). Hard caps are in the next sections.",
         ],
         code: { title: "files / HTTP", lang: "rsd", text: io },
       },
@@ -833,7 +840,7 @@ russd run examples/fizzbuzz.rsd -O0`,
       {
         heading: "16. 文件与 HTTP",
         body: [
-          "I/O 返回 `Result`。路径与网络都有沙盒。细节见下一节限制清单。",
+          "I/O 返回 `Result`。路径与网络都有沙盒。`http_serve` 在本机开 HTTP/1.0。完整网站例子在 `examples/site/`。细节见下一节限制清单。",
         ],
         code: { title: "文件 / HTTP", lang: "rsd", text: io },
       },

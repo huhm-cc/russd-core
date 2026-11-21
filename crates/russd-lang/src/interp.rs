@@ -446,6 +446,110 @@ impl Vm {
         }
     }
 
+    fn http_serve(&mut self, args: &[Expr], span: Span) -> Result<Flow, Diagnostic> {
+        let port = match self.val(&args[0])? {
+            Value::I32(n) => n,
+            Value::I64(n) => n as i32,
+            _ => return Err(Diagnostic::new(span, "`http_serve` 連接埠必須是整數")),
+        };
+        let handler = match self.val(&args[1])? {
+            Value::Str(s) => s,
+            _ => return Err(Diagnostic::new(span, "`http_serve` 需要處理函式名稱")),
+        };
+        if !crate::sandbox::safe_ident(&handler) {
+            return Err(Diagnostic::new(span, "`http_serve` 函式名稱不合法"));
+        }
+        let mut max_req = 0i32;
+        if args.len() >= 3 {
+            max_req = match self.val(&args[2])? {
+                Value::I32(n) => n,
+                Value::I64(n) => n as i32,
+                _ => return Err(Diagnostic::new(span, "`http_serve` 次數必須是整數")),
+            };
+        }
+        if max_req < 0 {
+            max_req = 0;
+        }
+        if max_req > crate::sandbox::MAX_HTTP_SERVE_REQUESTS {
+            max_req = crate::sandbox::MAX_HTTP_SERVE_REQUESTS;
+        }
+        let f = self
+            .functions
+            .get(&handler)
+            .cloned()
+            .ok_or_else(|| Diagnostic::new(span, format!("找不到處理函式 `{handler}`")))?;
+        if f.params.len() != 4 {
+            return Err(Diagnostic::new(
+                span,
+                format!("`{handler}` 必須是 fn(method: str, path: str, query: str, body: str) -> str"),
+            ));
+        }
+        let listener = match crate::http_server::bind_local(port) {
+            Ok(l) => l,
+            Err(e) => {
+                return Ok(Flow::Value(Value::Result(Err(Box::new(Value::Str(e))))))
+            }
+        };
+        println!("Russd 網站 http://127.0.0.1:{port}/");
+        self.output
+            .push_str(&format!("Russd 網站 http://127.0.0.1:{port}/\n"));
+        let mut served = 0i32;
+        loop {
+            if max_req > 0 && served >= max_req {
+                break;
+            }
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    match crate::http_server::read_request(&mut stream) {
+                        Ok(req) => {
+                            if req.method == "HEAD" || req.path == "/favicon.ico" {
+                                let _ = crate::http_server::write_response(
+                                    &mut stream,
+                                    &req.path,
+                                    "",
+                                );
+                            } else {
+                                let args = vec![
+                                    Value::Str(req.method),
+                                    Value::Str(req.path.clone()),
+                                    Value::Str(req.query),
+                                    Value::Str(req.body),
+                                ];
+                                match self.call_fn(&f, args) {
+                                    Ok(Flow::Value(Value::Str(body)))
+                                    | Ok(Flow::Return(Value::Str(body))) => {
+                                        let _ = crate::http_server::write_response(
+                                            &mut stream, &req.path, &body,
+                                        );
+                                    }
+                                    Ok(_) => {
+                                        crate::http_server::write_error(
+                                            &mut stream,
+                                            "處理函式必須回傳 str",
+                                        );
+                                    }
+                                    Err(d) => {
+                                        crate::http_server::write_error(&mut stream, &d.message);
+                                    }
+                                }
+                            }
+                            served += 1;
+                        }
+                        Err(e) => crate::http_server::write_error(&mut stream, &e),
+                    }
+                }
+                Err(e) => {
+                    return Ok(Flow::Value(Value::Result(Err(Box::new(Value::Str(
+                        e.to_string(),
+                    ))))))
+                }
+            }
+        }
+        Ok(Flow::Value(Value::Result(Ok(Box::new(Value::Str(format!(
+            "served {served}"
+        )))))))
+    }
+
     fn eval_call(&mut self, callee: &Expr, args: &[Expr], span: Span) -> Result<Flow, Diagnostic> {
         if let Expr::Var { name, .. } = callee {
             if name == "print" {
@@ -583,6 +687,16 @@ impl Vm {
                     _ => return Err(Diagnostic::new(span, "`http_get` 需要 URL 字串")),
                 };
                 return Ok(Flow::Value(http_get(&url)));
+            }
+            if name == "url_decode" {
+                let s = match self.val(&args[0])? {
+                    Value::Str(s) => s,
+                    _ => return Err(Diagnostic::new(span, "`url_decode` 需要 str")),
+                };
+                return Ok(Flow::Value(Value::Str(crate::http_server::url_decode(&s))));
+            }
+            if name == "http_serve" {
+                return self.http_serve(args, span);
             }
             if name == "spawn" {
                 let fname = match self.val(&args[0])? {

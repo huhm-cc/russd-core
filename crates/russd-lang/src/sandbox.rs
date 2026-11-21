@@ -86,3 +86,4 @@ fn is_global_ip(ip: IpAddr) -> bool {
 pub const MAX_SLEEP_MS: u64 = 5_000;
 pub const MAX_WRITE_BYTES: usize = 1_048_576;
 pub const MAX_HTTP_BYTES: usize = 262_144;
+pub const MAX_HTTP_SERVE_REQUESTS: i32 = 10_000;

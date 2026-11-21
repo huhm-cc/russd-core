@@ -1,0 +1,37 @@
+mod html
+mod board
+mod pages
+
+fn test_home_query() {
+    let html = on_request("GET", "/", "name=Ada", "")
+    assert(html.clone().contains("Ada"))
+    assert(html.contains("木質工作臺"))
+}
+
+fn test_fizz() {
+    let html = on_request("GET", "/fizz", "", "")
+    assert(html.clone().contains("FizzBuzz"))
+    assert(html.contains("<td>14</td>"))
+}
+
+fn test_unknown() {
+    let html = on_request("GET", "/nope", "", "")
+    assert(html.contains("沒有"))
+}
+
+fn test_api() {
+    let body = on_request("GET", "/api/stats", "", "")
+    assert(body.contains("russd-workshop"))
+}
+
+fn test_escape() {
+    let html = on_request("GET", "/", "name=%3Cscript%3E", "")
+    assert(html.contains("&lt;script&gt;"))
+}
+
+fn test_form_get() {
+    assert(form_get("a=1&name=Bo", "name") == "Bo")
+    assert(url_decode("Ada+Lovelace") == "Ada Lovelace")
+}
+
+fn main() {}

@@ -838,6 +838,27 @@ impl<'a> Ctx<'a> {
                 self.check_expr(&args[0], Some(&Type::Str))?;
                 return Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)));
             }
+            if name == "url_decode" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`url_decode` 需要一個字串"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                return Ok(Type::Str);
+            }
+            if name == "http_serve" {
+                if args.len() != 2 && args.len() != 3 {
+                    return Err(Diagnostic::new(
+                        span,
+                        "`http_serve(port, handler)` 或 `http_serve(port, handler, max_requests)`",
+                    ));
+                }
+                self.check_expr(&args[0], Some(&Type::I32))?;
+                self.check_expr(&args[1], Some(&Type::Str))?;
+                if args.len() == 3 {
+                    self.check_expr(&args[2], Some(&Type::I32))?;
+                }
+                return Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)));
+            }
             if name == "spawn" {
                 if args.len() != 1 {
                     return Err(Diagnostic::new(span, "`spawn` 需要函式名稱字串"));

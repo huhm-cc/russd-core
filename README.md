@@ -24,6 +24,15 @@ cargo run -- disasm examples/hello.rsd
 `cargo run` 後面的 `--` 與檔名之間要有空白。不要寫 `cargo run --run`（Cargo 會當成自己的旗標）。
 `cargo run -- run examples/hello.rsd` 也可以，但必須先 `cd` 進這個倉庫。
 
+用 Russd 寫的小網站（路由、FizzBuzz、留言板、JSON）：
+
+```powershell
+cd russd-core
+cargo run -- examples/site/main.rsd
+```
+
+然後用瀏覽器開 `http://127.0.0.1:4371/`。只聽本機。換埠：`cargo run -- examples/site/main.rsd -- 4371`。
+
 ```bash
 cargo install --path .
 russd run examples/fizzbuzz.rsd

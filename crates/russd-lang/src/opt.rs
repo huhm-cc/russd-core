@@ -629,6 +629,52 @@ fn subst_expr(e: Expr, map: &HashMap<String, Expr>, stats: &mut OptStats) -> Exp
             index: Box::new(subst_expr(*index, map, stats)),
             span,
         },
+        Expr::Match {
+            scrutinee,
+            arms,
+            span,
+        } => Expr::Match {
+            scrutinee: Box::new(subst_expr(*scrutinee, map, stats)),
+            arms: arms
+                .into_iter()
+                .map(|a| MatchArm {
+                    pat: a.pat,
+                    body: subst_expr(a.body, map, stats),
+                })
+                .collect(),
+            span,
+        },
+        Expr::Try { expr, span } => Expr::Try {
+            expr: Box::new(subst_expr(*expr, map, stats)),
+            span,
+        },
+        Expr::Range { start, end, span } => Expr::Range {
+            start: Box::new(subst_expr(*start, map, stats)),
+            end: Box::new(subst_expr(*end, map, stats)),
+            span,
+        },
+        Expr::StructLit { name, fields, span } => Expr::StructLit {
+            name,
+            fields: fields
+                .into_iter()
+                .map(|(k, v)| (k, subst_expr(v, map, stats)))
+                .collect(),
+            span,
+        },
+        Expr::EnumLit {
+            enum_name,
+            variant,
+            args,
+            span,
+        } => Expr::EnumLit {
+            enum_name,
+            variant,
+            args: args
+                .into_iter()
+                .map(|a| subst_expr(a, map, stats))
+                .collect(),
+            span,
+        },
         other => other,
     }
 }
@@ -774,6 +820,10 @@ fn complexity(e: &Expr) -> u32 {
                 + complexity(then_branch)
                 + else_branch.as_ref().map(|e| complexity(e)).unwrap_or(0)
         }
+        Expr::Match { scrutinee, arms, .. } => {
+            2 + complexity(scrutinee) + arms.iter().map(|a| complexity(&a.body)).sum::<u32>()
+        }
+        Expr::Field { base, .. } | Expr::Try { expr: base, .. } => 1 + complexity(base),
         _ => 1,
     }
 }

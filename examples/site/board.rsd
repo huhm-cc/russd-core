@@ -1,0 +1,123 @@
+fn notes_path() -> str {
+    "russd-board-notes.txt"
+}
+
+fn hits_path() -> str {
+    "russd-board-hits.txt"
+}
+
+fn load_text(path: str) -> str {
+    match read_file(path) {
+        Ok(s) => s
+        Err(_) => ""
+    }
+}
+
+fn bump_hits() -> i32 {
+    let raw = load_text(hits_path()).trim()
+    let mut n = 0
+    if raw.clone() != "" {
+        match raw.parse_i32() {
+            Ok(v) => n = v
+            Err(_) => n = 0
+        }
+    }
+    n += 1
+    match write_file(hits_path(), "" + n) {
+        Ok(_) => n
+        Err(_) => n
+    }
+}
+
+fn read_hits() -> i32 {
+    let raw = load_text(hits_path()).trim()
+    if raw.clone() == "" {
+        return 0
+    }
+    match raw.parse_i32() {
+        Ok(v) => v
+        Err(_) => 0
+    }
+}
+
+fn load_notes() -> Vec[str] {
+    let raw = load_text(notes_path())
+    let lines = raw.split("\n")
+    let mut out: Vec[str] = vec()
+    for line in lines {
+        let t = line.trim()
+        if t.clone() != "" {
+            out.push(t)
+        }
+    }
+    out
+}
+
+fn save_notes(lines: Vec[str]) {
+    let body = lines.join("\n")
+    match write_file(notes_path(), body) {
+        Ok(_) => ()
+        Err(_) => ()
+    }
+}
+
+fn add_note(name: str, msg: str) -> str {
+    let n = name.trim()
+    let m = msg.trim()
+    if n.clone() == "" {
+        return "名字與留言都不能空白。"
+    }
+    if m.clone() == "" {
+        return "名字與留言都不能空白。"
+    }
+    if n.clone().len() > 24 {
+        return "名字太長。"
+    }
+    if m.clone().len() > 160 {
+        return "留言太長。"
+    }
+    if n.clone().contains("|") {
+        return "請不要在內容裡使用 |"
+    }
+    if m.clone().contains("|") {
+        return "請不要在內容裡使用 |"
+    }
+    let stamp = now_ms()
+    let line = "" + stamp + "|" + n + "|" + m
+    let old = load_notes()
+    let mut next: Vec[str] = vec(line)
+    let mut i = 0
+    for item in old {
+        if i >= 11 {
+            break
+        }
+        next.push(item)
+        i += 1
+    }
+    save_notes(next)
+    "ok"
+}
+
+fn note_name(line: str) -> str {
+    let p = line.split("|")
+    if p.len() >= 3 {
+        return p[1]
+    }
+    "匿名"
+}
+
+fn note_msg(line: str) -> str {
+    let p = line.split("|")
+    if p.len() >= 3 {
+        return p[2]
+    }
+    line
+}
+
+fn note_time(line: str) -> str {
+    let p = line.split("|")
+    if p.len() >= 1 {
+        return p[0]
+    }
+    "?"
+}

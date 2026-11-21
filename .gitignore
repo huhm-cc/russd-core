@@ -1,4 +1,6 @@
 /target
+russd-board-notes.txt
+russd-board-hits.txt
 **/*.rs.bk
 .idea
 .vscode

@@ -1,0 +1,40 @@
+fn escape(s: str) -> str {
+    let a = s.replace("&", "&amp;")
+    let b = a.replace("<", "&lt;")
+    let c = b.replace(">", "&gt;")
+    let d = c.replace("\"", "&quot;")
+    d.replace("'", "&#39;")
+}
+
+fn form_get(raw: str, key: str) -> str {
+    let pairs = raw.split("&")
+    for p in pairs {
+        let kv = p.split("=")
+        if kv.len() >= 2 {
+            if kv[0] == key.clone() {
+                return url_decode(kv[1])
+            }
+        }
+    }
+    ""
+}
+
+fn nav() -> str {
+    "<nav><a href=\"/\">首頁</a><a href=\"/fizz\">FizzBuzz</a><a href=\"/board\">留言板</a><a href=\"/status\">狀態</a><a href=\"/api/stats\">JSON</a></nav>"
+}
+
+fn layout(title: str, body: str) -> str {
+    "<!DOCTYPE html><html lang=\"zh-Hant\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>"
+        + escape(title)
+        + "</title><style>"
+        + css()
+        + "</style></head><body><div class=\"frame\"><header><p class=\"eyebrow\">Russd Workshop</p><h1>木質工作臺</h1><p class=\"lede\">這個網站的路由、畫面、留言與計數全部是 <code>.rsd</code>。執行期只綁 <code>127.0.0.1</code>。</p>"
+        + nav()
+        + "</header><main>"
+        + body
+        + "</main><footer>GPL-3.0 · 沙盒 VM · 不是 TLS 網站</footer></div></body></html>"
+}
+
+fn css() -> str {
+    "html{background:#1c1410;color:#f4eadc}body{margin:0;font-family:Georgia,\"Iwanami Mincho\",serif}code,nav a,.mono{font-family:ui-monospace,Consolas,monospace}.frame{max-width:760px;margin:0 auto;padding:32px 20px 64px}header h1{font-size:2.2rem;margin:0 0 8px;letter-spacing:.04em}.eyebrow{text-transform:uppercase;letter-spacing:.18em;color:#c45c26;font-size:.75rem;margin:0}.lede{color:#d7c4ae;line-height:1.5}nav{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 28px}nav a{color:#1c1410;background:#e8c39b;text-decoration:none;padding:6px 10px;border-radius:2px}nav a:hover{background:#f3d7b4}article,form,ul{background:#2a201a;padding:18px 20px;border:1px solid #4a372c;border-radius:4px}h2{margin-top:0;color:#f0d2b0}label{display:block;margin:10px 0 4px;color:#d7c4ae}input,textarea{width:100%;box-sizing:border-box;background:#1c1410;color:#f4eadc;border:1px solid #6a5144;padding:8px}button{margin-top:12px;background:#c45c26;color:#fff;border:0;padding:8px 14px;cursor:pointer}li{margin:8px 0}footer{margin-top:28px;color:#8a7466;font-size:.85rem}.grid{display:grid;gap:12px}@media(min-width:640px){.grid.two{grid-template-columns:1fr 1fr}}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:6px 4px;border-bottom:1px solid #4a372c}"
+}

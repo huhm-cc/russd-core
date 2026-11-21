@@ -37,7 +37,8 @@ Russd 看起來像簡化的 Rust：`fn`、`let` / `let mut`、結構、列舉、
 - 集合：`vec`/`map`、`push` `pop` `set` `get` `keys` `clear` `reverse`
 - 數學：`abs` `min` `max` `sqrt`；FFI：`extern_call("sin"|"cos"|"sqrt"|"pow"|...)`
 - 時間：`now_ms` `sleep_ms`
-- 檔案 / 網路：`read_file` `write_file` `http_get`（HTTP/1.0，無 TLS）
+- 檔案 / 網路：`read_file` `write_file` `http_get`（HTTP/1.0，無 TLS）、`http_serve(port, handler)`（只綁 127.0.0.1）、`url_decode`
+- 範例網站：`examples/site/`（路由、FizzBuzz、留言板、JSON 狀態，全部 `.rsd`）
 - 執行期可攜 Linux/macOS/Windows（只要有 Rust）；FFI 走宿主白名單而非任意 dlopen
 
 ## 6. 開發者工具

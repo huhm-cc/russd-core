@@ -75,8 +75,13 @@ Russd 0.3 — 開源、Rust 風格、最佳化編譯器（GPL-3.0）
   russd pkg init|info
   russd help
 
+範例網站（純 .rsd）：
+  cargo run -- examples/site/main.rsd
+  瀏覽器開 http://127.0.0.1:4371/
+
 預設 -O2：常數摺疊、代數簡化、條件摺疊、內聯、死碼刪除、copy-prop、bytecode peephole。
 -O0 關閉最佳化。執行期仍是安全 VM，不是 LLVM 機器碼。
+http_serve 只綁 127.0.0.1、埠 1024–49151。
 "
     );
 }
@@ -169,8 +174,13 @@ fn cmd_test(args: &[String]) {
         if !path.ends_with(".rsd") {
             continue;
         }
-        let Ok(checked) = compile_path(Path::new(path)) else {
-            continue;
+        let checked = match compile_path(Path::new(path)) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("{e}");
+                failed += 1;
+                continue;
+            }
         };
         let tests: Vec<String> = checked
             .functions

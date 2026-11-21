@@ -80,3 +80,19 @@ fn main() {
         .unwrap_or_else(|| "no runtime error".into());
     assert!(err.contains("溢位"), "{err}");
 }
+
+#[test]
+fn inline_preserves_match_on_result() {
+    let src = r#"
+fn wrap(x: str) -> str {
+    match read_file(x) {
+        Ok(s) => s
+        Err(_) => "missing"
+    }
+}
+fn main() {
+    print(wrap("no-such-russd-file.txt"))
+}
+"#;
+    assert_eq!(run_o(OptLevel::O2, src).trim(), "missing");
+}
