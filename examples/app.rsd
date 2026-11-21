@@ -1,0 +1,27 @@
+mod math
+
+fn main() {
+    print("2+3 =", add(2, 3))
+    print("bits", bit_demo(6, 3))
+    let mut n = 0
+    loop {
+        n += 1
+        if n == 3 {
+            break
+        }
+    }
+    print("looped", n)
+
+    let mut m: Map[i32] = map()
+    m.set("score", 99)
+    match m.get("score") {
+        Some(v) => print("score", v)
+        None => print("missing")
+    }
+
+    let words = "a,b,c".split(",")
+    print(words.join("-"))
+
+    print("sqrt(9) =", sqrt(9.0))
+    print("ffi sin", extern_call("sin", 0.0))
+}

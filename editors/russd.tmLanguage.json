@@ -1,0 +1,13 @@
+{
+  "name": "Russd",
+  "scopeName": "source.russd",
+  "fileTypes": ["rsd"],
+  "patterns": [
+    { "name": "comment.line.double-slash.russd", "match": "//.*$" },
+    { "name": "string.quoted.double.russd", "begin": "\"", "end": "\"", "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.russd" }] },
+    { "name": "keyword.control.russd", "match": "\\b(fn|let|mut|if|else|while|for|in|struct|enum|match|impl|return|mod|break|continue|loop|self)\\b" },
+    { "name": "constant.language.russd", "match": "\\b(true|false|None|Some|Ok|Err)\\b" },
+    { "name": "storage.type.russd", "match": "\\b(i32|i64|f64|bool|str|Vec|Map|Option|Result)\\b" },
+    { "name": "constant.numeric.russd", "match": "\\b\\d+(\\.\\d+)?(i32|i64)?\\b" }
+  ]
+}

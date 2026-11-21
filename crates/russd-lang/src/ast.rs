@@ -11,6 +11,7 @@ pub enum Item {
     Struct(StructDef),
     Enum(EnumDef),
     Impl(ImplDef),
+    Mod { name: String, span: Span },
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +92,10 @@ pub enum Expr {
     Int {
         value: i64,
         ty_i64: bool,
+        span: Span,
+    },
+    Float {
+        value: f64,
         span: Span,
     },
     Bool {
@@ -180,6 +185,7 @@ impl Expr {
     pub fn span(&self) -> Span {
         match self {
             Expr::Int { span, .. }
+            | Expr::Float { span, .. }
             | Expr::Bool { span, .. }
             | Expr::Str { span, .. }
             | Expr::Unit { span }
@@ -239,6 +245,16 @@ pub enum Stmt {
         body: Expr,
         span: Span,
     },
+    Loop {
+        body: Expr,
+        span: Span,
+    },
+    Break {
+        span: Span,
+    },
+    Continue {
+        span: Span,
+    },
     For {
         name: String,
         iter: Expr,
@@ -263,6 +279,11 @@ pub enum BinOp {
     Ge,
     And,
     Or,
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -272,4 +293,5 @@ pub enum UnOp {
     Ref,
     RefMut,
     Deref,
+    BitNot,
 }

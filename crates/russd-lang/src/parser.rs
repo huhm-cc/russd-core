@@ -87,9 +87,16 @@ impl<'a> Parser<'a> {
             TokenKind::Struct => Ok(Item::Struct(self.parse_struct()?)),
             TokenKind::Enum => Ok(Item::Enum(self.parse_enum()?)),
             TokenKind::Impl => Ok(Item::Impl(self.parse_impl()?)),
+            TokenKind::Mod => {
+                let span = self.span();
+                self.bump();
+                let (name, _) = self.eat_ident("預期模組名稱")?;
+                self.skip_semi();
+                Ok(Item::Mod { name, span })
+            }
             _ => Err(Diagnostic::new(
                 self.span(),
-                "預期 `fn`、`struct`、`enum` 或 `impl`",
+                "預期 `fn`、`struct`、`enum`、`impl` 或 `mod`",
             )),
         }
     }
@@ -389,6 +396,22 @@ impl<'a> Parser<'a> {
                     span,
                 })
             }
+            TokenKind::Loop => {
+                let span = self.span();
+                self.bump();
+                let body = self.parse_block_expr()?;
+                Ok(Stmt::Loop { body, span })
+            }
+            TokenKind::Break => {
+                let span = self.span();
+                self.bump();
+                Ok(Stmt::Break { span })
+            }
+            TokenKind::Continue => {
+                let span = self.span();
+                self.bump();
+                Ok(Stmt::Continue { span })
+            }
             _ => Ok(Stmt::Expr(self.parse_expr()?)),
         }
     }
@@ -436,6 +459,27 @@ impl<'a> Parser<'a> {
                 span,
             });
         }
+        let compound = match self.peek() {
+            TokenKind::PlusEq => Some(BinOp::Add),
+            TokenKind::MinusEq => Some(BinOp::Sub),
+            TokenKind::StarEq => Some(BinOp::Mul),
+            _ => None,
+        };
+        if let Some(op) = compound {
+            let span = self.span();
+            self.bump();
+            let right = self.parse_assign()?;
+            return Ok(Expr::Assign {
+                place: Box::new(left.clone()),
+                value: Box::new(Expr::Binary {
+                    op,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    span,
+                }),
+                span,
+            });
+        }
         Ok(left)
     }
 
@@ -456,13 +500,61 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_and(&mut self) -> Result<Expr, Diagnostic> {
-        let mut left = self.parse_eq()?;
+        let mut left = self.parse_bitor()?;
         while self.at(&TokenKind::AndAnd) {
+            let span = self.span();
+            self.bump();
+            let right = self.parse_bitor()?;
+            left = Expr::Binary {
+                op: BinOp::And,
+                left: Box::new(left),
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(left)
+    }
+
+    fn parse_bitor(&mut self) -> Result<Expr, Diagnostic> {
+        let mut left = self.parse_bitxor()?;
+        while self.at(&TokenKind::Pipe) {
+            let span = self.span();
+            self.bump();
+            let right = self.parse_bitxor()?;
+            left = Expr::Binary {
+                op: BinOp::BitOr,
+                left: Box::new(left),
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(left)
+    }
+
+    fn parse_bitxor(&mut self) -> Result<Expr, Diagnostic> {
+        let mut left = self.parse_bitand()?;
+        while self.at(&TokenKind::Caret) {
+            let span = self.span();
+            self.bump();
+            let right = self.parse_bitand()?;
+            left = Expr::Binary {
+                op: BinOp::BitXor,
+                left: Box::new(left),
+                right: Box::new(right),
+                span,
+            };
+        }
+        Ok(left)
+    }
+
+    fn parse_bitand(&mut self) -> Result<Expr, Diagnostic> {
+        let mut left = self.parse_eq()?;
+        while self.at(&TokenKind::And) {
             let span = self.span();
             self.bump();
             let right = self.parse_eq()?;
             left = Expr::Binary {
-                op: BinOp::And,
+                op: BinOp::BitAnd,
                 left: Box::new(left),
                 right: Box::new(right),
                 span,
@@ -516,16 +608,37 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_range(&mut self) -> Result<Expr, Diagnostic> {
-        let left = self.parse_add()?;
+        let left = self.parse_shift()?;
         if self.at(&TokenKind::DotDot) {
             let span = self.span();
             self.bump();
-            let right = self.parse_add()?;
+            let right = self.parse_shift()?;
             return Ok(Expr::Range {
                 start: Box::new(left),
                 end: Box::new(right),
                 span,
             });
+        }
+        Ok(left)
+    }
+
+    fn parse_shift(&mut self) -> Result<Expr, Diagnostic> {
+        let mut left = self.parse_add()?;
+        loop {
+            let op = match self.peek() {
+                TokenKind::Shl => BinOp::Shl,
+                TokenKind::Shr => BinOp::Shr,
+                _ => break,
+            };
+            let span = self.span();
+            self.bump();
+            let right = self.parse_add()?;
+            left = Expr::Binary {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+                span,
+            };
         }
         Ok(left)
     }
@@ -589,6 +702,15 @@ impl<'a> Parser<'a> {
             let expr = self.parse_unary()?;
             return Ok(Expr::Unary {
                 op: UnOp::Not,
+                expr: Box::new(expr),
+                span,
+            });
+        }
+        if self.at(&TokenKind::Tilde) {
+            self.bump();
+            let expr = self.parse_unary()?;
+            return Ok(Expr::Unary {
+                op: UnOp::BitNot,
                 expr: Box::new(expr),
                 span,
             });
@@ -705,6 +827,10 @@ impl<'a> Parser<'a> {
                     ty_i64: suffix_i64,
                     span,
                 })
+            }
+            TokenKind::Float(value) => {
+                self.bump();
+                Ok(Expr::Float { value, span })
             }
             TokenKind::True => {
                 self.bump();
@@ -951,11 +1077,17 @@ fn looks_like_struct_lit(p: &Parser<'_>) -> bool {
 pub fn parse_repl_line(tokens: &[Token]) -> Result<ReplInput, Diagnostic> {
     let mut p = Parser { tokens, pos: 0 };
     match p.peek() {
-        TokenKind::Fn | TokenKind::Struct | TokenKind::Enum | TokenKind::Impl => {
+        TokenKind::Fn | TokenKind::Struct | TokenKind::Enum | TokenKind::Impl | TokenKind::Mod => {
             let item = p.parse_item()?;
             Ok(ReplInput::Item(item))
         }
-        TokenKind::Let | TokenKind::Return | TokenKind::While | TokenKind::For => {
+        TokenKind::Let
+        | TokenKind::Return
+        | TokenKind::While
+        | TokenKind::For
+        | TokenKind::Loop
+        | TokenKind::Break
+        | TokenKind::Continue => {
             let stmt = p.parse_stmt()?;
             Ok(ReplInput::Stmt(stmt))
         }

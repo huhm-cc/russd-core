@@ -178,6 +178,47 @@ fn main() {
 }
 
 #[test]
+fn bitwise_and_loop() {
+    let out = run_ok(
+        r#"
+fn main() {
+    print(1 << 3)
+    print(6 & 3)
+    print(6 | 1)
+    let mut n = 0
+    loop {
+        n += 1
+        if n >= 2 {
+            break
+        }
+    }
+    print(n)
+}
+"#,
+    );
+    assert_eq!(out, "8\n2\n7\n2\n");
+}
+
+#[test]
+fn map_and_string() {
+    let out = run_ok(
+        r#"
+fn main() {
+    let mut m: Map[i32] = map()
+    m.set("a", 1)
+    match m.get("a") {
+        Some(v) => print(v)
+        None => print(0)
+    }
+    print("Ab".to_lower())
+    print((7 ^ 3))
+}
+"#,
+    );
+    assert_eq!(out, "1\nab\n4\n");
+}
+
+#[test]
 fn fizz_first_lines() {
     let out = run_ok(
         r#"

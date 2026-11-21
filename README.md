@@ -1,69 +1,53 @@
 # Russd
 
-開源、語法接近 Rust、刻意更好學的程式語言。核心編譯器與執行器都在這個倉庫：[huhm-cc/russd-core](https://github.com/huhm-cc/russd-core)。
+開源、語法接近 Rust 的靜態型別語言。核心在 [huhm-cc/russd-core](https://github.com/huhm-cc/russd-core)（**GPL-3.0**）。
 
-> v0 是**帶靜態檢查的解釋器**。它比草稿腳本嚴謹，但**還沒有** LLVM 原生後端，所以不會比 rustc 更快。安全預設（無 `unsafe`、無生命週期語法、溢位/越界即錯誤）是現在就能驗收的部分。
+v0.2 覆蓋一門「能認真寫程式」的語言該有的六層（運算與控制流、模組化、執行期安全、編譯器管線、標準庫、開發工具）。它**不是** rustc/LLVM 等級的最佳化編譯器。
 
-授權：**GNU GPL v3**（與本倉庫 `LICENSE` 相同，完全開源、copyleft）。
-
-## 快速開始
+## 安裝
 
 ```bash
 git clone https://github.com/huhm-cc/russd-core
 cd russd-core
+cargo test --workspace
 cargo run -- run examples/hello.rsd
+cargo run -- run examples/app.rsd
+cargo run -- test examples/lang_test.rsd
+cargo run -- disasm examples/hello.rsd
 ```
-
-其他指令：
-
-```bash
-cargo run -- check examples/hello.rsd
-cargo run -- run examples/fizzbuzz.rsd
-cargo run --            # REPL
-cargo test
-```
-
-安裝 CLI：
 
 ```bash
 cargo install --path .
-russd run examples/structs.rsd
+russd run examples/fizzbuzz.rsd
+russd --help
 ```
 
-## 語言長什麼樣子
+## 你能寫什麼
 
 ```rsd
-fn greet(name: str) -> str {
-    "Hello, " + name
-}
+mod math
 
 fn main() {
-    let mut n = 0
-    while n < 3 {
-        print(greet("Russd"))
-        n = n + 1
-    }
+    let mut xs: Vec[i32] = vec()
+    xs.push(1)
+    xs.push(2)
+    print("sum", add(xs[0], xs[1]))
+    print(1 << 3, 6 & 3, ~0)
 }
 ```
 
-更多說明見 [spec/overview.md](spec/overview.md)。
+完整對照見 [spec/overview.md](spec/overview.md)。
 
-## 設計原則
+## 指令
 
-| 目標 | v0 怎麼做 |
-|------|-----------|
-| 易懂、好學 | 語法像簡化 Rust；診斷用中文 + 修法建議 |
-| 更安全 | 沒有 `unsafe`、結構不能存引用、溢位/除零/越界都是錯誤 |
-| 更好用 | 不寫 `'a`；分號可省略 |
-| 更快 | 解釋器先能跑；HIR 預留給之後的 LLVM 後端 |
+| 指令 | 用途 |
+|------|------|
+| `russd run f.rsd -- args` | 執行（支援 `mod`、命令列參數 `args()`） |
+| `russd check` | 只做 lex/parse/type/borrow |
+| `russd test` | 跑 `test_*` |
+| `russd fmt` | 格式化 |
+| `russd disasm` | 印 bytecode |
+| `russd complete` | 符號補全 |
+| `russd pkg init` | 寫 `russd.toml` |
 
-## 倉庫結構
-
-- `crates/russd-lang` — lexer、parser、類型/所有權檢查、解釋器
-- `src/main.rs` — `russd` CLI
-- `examples/` — 可執行範例
-- `spec/` — 給學習者的一頁說明
-
-## 貢獻
-
-歡迎開 issue 與 pull request。請維持 GPL-3.0，不要加入 `unsafe` 逃生艙或生命週期語法，除非先有完整設計討論。
+編輯器：把 `editors/russd.tmLanguage.json` 加到支援 TextMate grammar 的 IDE。

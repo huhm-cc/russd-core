@@ -1,17 +1,23 @@
 mod ast;
+mod bytecode;
 mod check;
 mod diag;
+mod fmt;
 mod interp;
 mod lexer;
+mod loader;
 mod parser;
 mod span;
 mod token;
 mod types;
 
+pub use bytecode::{compile_bytecode, run_bytecode, BytecodeProgram};
 pub use check::{check, CheckedProgram};
 pub use diag::{render_all, Diagnostic};
-pub use interp::{run, Value, Vm};
+pub use fmt::format_source;
+pub use interp::{run, run_with_args, Value, Vm};
 pub use lexer::lex;
+pub use loader::compile_path;
 pub use parser::{parse_repl_line, ReplInput};
 
 use crate::parser::parse;

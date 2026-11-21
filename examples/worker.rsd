@@ -1,0 +1,9 @@
+fn worker() {
+    print("hello from thread")
+}
+
+fn main() {
+    let id = spawn("worker")
+    join(id)
+    print("joined")
+}

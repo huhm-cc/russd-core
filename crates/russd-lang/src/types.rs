@@ -4,6 +4,7 @@ use crate::span::Span;
 pub enum Type {
     I32,
     I64,
+    F64,
     Bool,
     Str,
     Unit,
@@ -12,6 +13,7 @@ pub enum Type {
     Option(Box<Type>),
     Result(Box<Type>, Box<Type>),
     Range,
+    Map(Box<Type>),
     Named(String),
     Ref(Box<Type>, bool),
     /// Infer hole used only during checking
@@ -21,7 +23,13 @@ pub enum Type {
 impl Type {
     pub fn is_copy(&self) -> bool {
         match self {
-            Type::I32 | Type::I64 | Type::Bool | Type::Unit | Type::Never | Type::Range => true,
+            Type::I32
+            | Type::I64
+            | Type::F64
+            | Type::Bool
+            | Type::Unit
+            | Type::Never
+            | Type::Range => true,
             Type::Ref(_, false) => true, // shared refs copy the reference (local only)
             _ => false,
         }
@@ -42,6 +50,7 @@ impl Type {
         match self {
             Type::I32 => "i32".into(),
             Type::I64 => "i64".into(),
+            Type::F64 => "f64".into(),
             Type::Bool => "bool".into(),
             Type::Str => "str".into(),
             Type::Unit => "()".into(),
@@ -50,6 +59,7 @@ impl Type {
             Type::Option(t) => format!("Option[{}]", t.display()),
             Type::Result(t, e) => format!("Result[{}, {}]", t.display(), e.display()),
             Type::Range => "Range".into(),
+            Type::Map(t) => format!("Map[{}]", t.display()),
             Type::Named(n) => n.clone(),
             Type::Ref(t, true) => format!("&mut {}", t.display()),
             Type::Ref(t, false) => format!("&{}", t.display()),

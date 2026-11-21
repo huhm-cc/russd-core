@@ -42,6 +42,7 @@ impl Infer {
                 }
             }
             Type::Vec(t) => Type::Vec(Box::new(self.resolve(t))),
+            Type::Map(t) => Type::Map(Box::new(self.resolve(t))),
             Type::Option(t) => Type::Option(Box::new(self.resolve(t))),
             Type::Result(t, e) => {
                 Type::Result(Box::new(self.resolve(t)), Box::new(self.resolve(e)))
@@ -64,6 +65,7 @@ impl Infer {
                 Ok(t.clone())
             }
             (Type::Vec(x), Type::Vec(y)) => Ok(Type::Vec(Box::new(self.unify(x, y, span)?))),
+            (Type::Map(x), Type::Map(y)) => Ok(Type::Map(Box::new(self.unify(x, y, span)?))),
             (Type::Option(x), Type::Option(y)) => {
                 Ok(Type::Option(Box::new(self.unify(x, y, span)?)))
             }
@@ -92,6 +94,7 @@ struct Ctx<'a> {
     infer: Infer,
     ret: Type,
     impl_ty: Option<String>,
+    in_loop: u32,
 }
 
 impl<'a> Ctx<'a> {
@@ -151,9 +154,29 @@ impl<'a> Ctx<'a> {
                 match name.as_str() {
                     "i32" => Ok(Type::I32),
                     "i64" => Ok(Type::I64),
+                    "f64" => Ok(Type::F64),
                     "bool" => Ok(Type::Bool),
                     "str" => Ok(Type::Str),
                     "Range" => Ok(Type::Range),
+                    "Map" => {
+                        let inner = if args.len() == 1 {
+                            self.resolve_type_expr(&args[0])?
+                        } else if args.len() == 2 {
+                            let k = self.resolve_type_expr(&args[0])?;
+                            if k != Type::Str {
+                                return Err(Diagnostic::new(
+                                    *span,
+                                    "`Map` 的鍵必須是 `str`（寫成 `Map[V]` 或 `Map[str, V]`）",
+                                ));
+                            }
+                            self.resolve_type_expr(&args[1])?
+                        } else if args.is_empty() {
+                            self.infer.fresh()
+                        } else {
+                            return Err(Diagnostic::new(*span, "`Map` 寫成 `Map[V]`"));
+                        };
+                        Ok(Type::Map(Box::new(inner)))
+                    }
                     "Vec" => {
                         let inner = if args.is_empty() {
                             self.infer.fresh()
@@ -394,8 +417,7 @@ impl<'a> Ctx<'a> {
                     Err(Diagnostic::new(span, format!("`{s}` 不是結構，沒有欄位")))
                 }
             }
-            Type::Vec(_) if name == "len" => Ok(Type::I32),
-            Type::Str if name == "len" => Ok(Type::I32),
+            Type::Vec(_) | Type::Map(_) | Type::Str if name == "len" => Ok(Type::I32),
             _ => Err(Diagnostic::new(
                 span,
                 format!("類型 `{}` 沒有欄位 `{name}`", ty.display()),
@@ -420,6 +442,7 @@ impl<'a> Ctx<'a> {
                     Type::I32
                 }
             }
+            Expr::Float { .. } => Type::F64,
             Expr::Bool { .. } => Type::Bool,
             Expr::Str { .. } => Type::Str,
             Expr::Unit { .. } => Type::Unit,
@@ -428,15 +451,22 @@ impl<'a> Ctx<'a> {
                 UnOp::Neg => {
                     let t = self.check_expr(expr, expected)?;
                     match t.peel_ref() {
-                        Type::I32 | Type::I64 => t.peel_ref().clone(),
+                        Type::I32 | Type::I64 | Type::F64 => t.peel_ref().clone(),
                         _ => {
-                            return Err(Diagnostic::new(*span, "只能對整數使用負號"));
+                            return Err(Diagnostic::new(*span, "只能對數字使用負號"));
                         }
                     }
                 }
                 UnOp::Not => {
                     self.check_expr(expr, Some(&Type::Bool))?;
                     Type::Bool
+                }
+                UnOp::BitNot => {
+                    let t = self.check_expr(expr, None)?;
+                    match t.peel_ref() {
+                        Type::I32 | Type::I64 => t.peel_ref().clone(),
+                        _ => return Err(Diagnostic::new(*span, "`~` 只能用在整數")),
+                    }
                 }
                 UnOp::Ref => {
                     if let Expr::Var { name, span } = expr.as_ref() {
@@ -625,9 +655,9 @@ impl<'a> Ctx<'a> {
             }
             BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
                 match l {
-                    Type::I32 | Type::I64 => {}
+                    Type::I32 | Type::I64 | Type::F64 => {}
                     _ => {
-                        return Err(Diagnostic::new(span, "比較運算只能用在整數"));
+                        return Err(Diagnostic::new(span, "比較運算只能用在數字"));
                     }
                 }
                 self.infer.unify(&l, &r, span)?;
@@ -639,7 +669,7 @@ impl<'a> Ctx<'a> {
                 }
                 self.infer.unify(&l, &r, span)?;
                 match self.infer.resolve(&l) {
-                    Type::I32 | Type::I64 => Ok(self.infer.resolve(&l)),
+                    Type::I32 | Type::I64 | Type::F64 => Ok(self.infer.resolve(&l)),
                     other => Err(Diagnostic::new(
                         span,
                         format!("不能對 `{}` 做加法", other.display()),
@@ -649,10 +679,20 @@ impl<'a> Ctx<'a> {
             BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
                 self.infer.unify(&l, &r, span)?;
                 match self.infer.resolve(&l) {
-                    Type::I32 | Type::I64 => Ok(self.infer.resolve(&l)),
+                    Type::I32 | Type::I64 | Type::F64 => Ok(self.infer.resolve(&l)),
                     other => Err(Diagnostic::new(
                         span,
                         format!("算術運算不能用在 `{}`", other.display()),
+                    )),
+                }
+            }
+            BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor | BinOp::Shl | BinOp::Shr => {
+                self.infer.unify(&l, &r, span)?;
+                match self.infer.resolve(&l) {
+                    Type::I32 | Type::I64 => Ok(self.infer.resolve(&l)),
+                    other => Err(Diagnostic::new(
+                        span,
+                        format!("位元運算不能用在 `{}`", other.display()),
                     )),
                 }
             }
@@ -686,6 +726,142 @@ impl<'a> Ctx<'a> {
                 }
                 return Ok(Type::Vec(Box::new(inner)));
             }
+            if name == "map" {
+                if !args.is_empty() {
+                    return Err(Diagnostic::new(span, "`map()` 不接受參數，請再用 `.set`"));
+                }
+                let inner = match expected {
+                    Some(Type::Map(t)) => (**t).clone(),
+                    _ => self.infer.fresh(),
+                };
+                return Ok(Type::Map(Box::new(inner)));
+            }
+            if name == "args" {
+                if !args.is_empty() {
+                    return Err(Diagnostic::new(span, "`args()` 不接受參數"));
+                }
+                return Ok(Type::Vec(Box::new(Type::Str)));
+            }
+            if name == "read_file" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`read_file` 需要路徑字串"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                return Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)));
+            }
+            if name == "write_file" {
+                if args.len() != 2 {
+                    return Err(Diagnostic::new(span, "`write_file(path, content)`"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                self.check_expr(&args[1], Some(&Type::Str))?;
+                return Ok(Type::Result(Box::new(Type::Unit), Box::new(Type::Str)));
+            }
+            if name == "assert" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`assert` 需要一個 bool"));
+                }
+                self.check_expr(&args[0], Some(&Type::Bool))?;
+                return Ok(Type::Unit);
+            }
+            if name == "panic" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`panic` 需要一個字串"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                return Ok(Type::Never);
+            }
+            if name == "abs" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`abs` 需要一個數字"));
+                }
+                let t = self.check_expr(&args[0], None)?;
+                match t.peel_ref() {
+                    Type::I32 | Type::I64 | Type::F64 => return Ok(t.peel_ref().clone()),
+                    other => {
+                        return Err(Diagnostic::new(
+                            span,
+                            format!("`abs` 不能用在 `{}`", other.display()),
+                        ))
+                    }
+                }
+            }
+            if name == "min" || name == "max" {
+                if args.len() != 2 {
+                    return Err(Diagnostic::new(span, format!("`{name}` 需要兩個數字")));
+                }
+                let a = self.check_expr(&args[0], None)?;
+                let b = self.check_expr(&args[1], Some(&a))?;
+                self.infer.unify(&a, &b, span)?;
+                match self.infer.resolve(&a) {
+                    Type::I32 | Type::I64 | Type::F64 => return Ok(self.infer.resolve(&a)),
+                    other => {
+                        return Err(Diagnostic::new(
+                            span,
+                            format!("`{name}` 不能用在 `{}`", other.display()),
+                        ))
+                    }
+                }
+            }
+            if name == "sqrt" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`sqrt` 需要一個數字"));
+                }
+                let t = self.check_expr(&args[0], None)?;
+                match t.peel_ref() {
+                    Type::F64 | Type::I32 | Type::I64 => return Ok(Type::F64),
+                    other => {
+                        return Err(Diagnostic::new(
+                            span,
+                            format!("`sqrt` 不能用在 `{}`", other.display()),
+                        ))
+                    }
+                }
+            }
+            if name == "now_ms" {
+                if !args.is_empty() {
+                    return Err(Diagnostic::new(span, "`now_ms()` 不接受參數"));
+                }
+                return Ok(Type::I64);
+            }
+            if name == "sleep_ms" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`sleep_ms` 需要毫秒數"));
+                }
+                self.check_expr(&args[0], None)?;
+                return Ok(Type::Unit);
+            }
+            if name == "http_get" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`http_get` 需要 URL"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                return Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)));
+            }
+            if name == "spawn" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`spawn` 需要函式名稱字串"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                return Ok(Type::I32);
+            }
+            if name == "join" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`join` 需要 thread id"));
+                }
+                self.check_expr(&args[0], Some(&Type::I32))?;
+                return Ok(Type::Unit);
+            }
+            if name == "extern_call" {
+                if args.is_empty() {
+                    return Err(Diagnostic::new(span, "`extern_call(name, ...)`"));
+                }
+                self.check_expr(&args[0], Some(&Type::Str))?;
+                for a in args.iter().skip(1) {
+                    self.check_expr(a, None)?;
+                }
+                return Ok(expected.cloned().unwrap_or(Type::I32));
+            }
             if let Some(f) = self.functions.get(name).cloned() {
                 return self.check_fn_call(&f, args, span, None);
             }
@@ -702,11 +878,14 @@ impl<'a> Ctx<'a> {
                     return Err(Diagnostic::new(span, "`len` 不接受參數"));
                 }
                 match self.peek_place_ty(base)?.peel_ref() {
-                    Type::Vec(_) | Type::Str => return Ok(Type::I32),
+                    Type::Vec(_) | Type::Str | Type::Map(_) => return Ok(Type::I32),
                     other => {
                         return Err(Diagnostic::new(
                             span,
-                            format!("`len` 只能用在 `Vec` 或 `str`，不是 `{}`", other.display()),
+                            format!(
+                                "`len` 只能用在 `Vec`、`Map` 或 `str`，不是 `{}`",
+                                other.display()
+                            ),
                         ));
                     }
                 }
@@ -734,6 +913,146 @@ impl<'a> Ctx<'a> {
                 match self.peek_place_ty(base)?.peel_ref() {
                     Type::Vec(inner) => return Ok(Type::Option(Box::new((**inner).clone()))),
                     _ => return Err(Diagnostic::new(span, "`pop` 只能用在 `Vec`")),
+                }
+            }
+            if name == "clear" {
+                self.borrow_receiver(base, true, span)?;
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Vec(_) | Type::Map(_) => return Ok(Type::Unit),
+                    _ => return Err(Diagnostic::new(span, "`clear` 只能用在 `Vec` 或 `Map`")),
+                }
+            }
+            if name == "reverse" {
+                self.borrow_receiver(base, true, span)?;
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Vec(_) => return Ok(Type::Unit),
+                    _ => return Err(Diagnostic::new(span, "`reverse` 只能用在 `Vec`")),
+                }
+            }
+            if name == "is_empty" {
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Vec(_) | Type::Str | Type::Map(_) => return Ok(Type::Bool),
+                    _ => {
+                        return Err(Diagnostic::new(
+                            span,
+                            "`is_empty` 只能用在 `Vec`/`Map`/`str`",
+                        ))
+                    }
+                }
+            }
+            if name == "contains" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`contains` 需要一個參數"));
+                }
+                let recv = self.peek_place_ty(base)?.peel_ref().clone();
+                match recv {
+                    Type::Vec(inner) => {
+                        self.check_expr(&args[0], Some(&inner))?;
+                        return Ok(Type::Bool);
+                    }
+                    Type::Str => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        return Ok(Type::Bool);
+                    }
+                    Type::Map(_) => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        return Ok(Type::Bool);
+                    }
+                    _ => return Err(Diagnostic::new(span, "`contains` 類型不支援")),
+                }
+            }
+            if name == "set" {
+                if args.len() != 2 {
+                    return Err(Diagnostic::new(span, "`set(key, value)`"));
+                }
+                self.borrow_receiver(base, true, span)?;
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Map(inner) => {
+                        let inner = (**inner).clone();
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        self.check_expr(&args[1], Some(&inner))?;
+                        return Ok(Type::Unit);
+                    }
+                    _ => return Err(Diagnostic::new(span, "`set` 只能用在 `Map`")),
+                }
+            }
+            if name == "get" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`get` 需要鍵"));
+                }
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Map(inner) => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        return Ok(Type::Option(Box::new((**inner).clone())));
+                    }
+                    _ => return Err(Diagnostic::new(span, "`get` 只能用在 `Map`")),
+                }
+            }
+            if name == "keys" {
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Map(_) => return Ok(Type::Vec(Box::new(Type::Str))),
+                    _ => return Err(Diagnostic::new(span, "`keys` 只能用在 `Map`")),
+                }
+            }
+            if name == "split" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`split` 需要分隔字串"));
+                }
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Str => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        return Ok(Type::Vec(Box::new(Type::Str)));
+                    }
+                    _ => return Err(Diagnostic::new(span, "`split` 只能用在 `str`")),
+                }
+            }
+            if name == "replace" {
+                if args.len() != 2 {
+                    return Err(Diagnostic::new(span, "`replace(from, to)`"));
+                }
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Str => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        self.check_expr(&args[1], Some(&Type::Str))?;
+                        return Ok(Type::Str);
+                    }
+                    _ => return Err(Diagnostic::new(span, "`replace` 只能用在 `str`")),
+                }
+            }
+            if name == "trim" || name == "to_upper" || name == "to_lower" {
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Str => return Ok(Type::Str),
+                    _ => return Err(Diagnostic::new(span, format!("`{name}` 只能用在 `str`"))),
+                }
+            }
+            if name == "starts_with" || name == "ends_with" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, format!("`{name}` 需要一個字串")));
+                }
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Str => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        return Ok(Type::Bool);
+                    }
+                    _ => return Err(Diagnostic::new(span, format!("`{name}` 只能用在 `str`"))),
+                }
+            }
+            if name == "parse_i32" {
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Str => return Ok(Type::Result(Box::new(Type::I32), Box::new(Type::Str))),
+                    _ => return Err(Diagnostic::new(span, "`parse_i32` 只能用在 `str`")),
+                }
+            }
+            if name == "join" {
+                if args.len() != 1 {
+                    return Err(Diagnostic::new(span, "`join` 需要分隔字串"));
+                }
+                match self.peek_place_ty(base)?.peel_ref() {
+                    Type::Vec(inner) if **inner == Type::Str => {
+                        self.check_expr(&args[0], Some(&Type::Str))?;
+                        return Ok(Type::Str);
+                    }
+                    _ => return Err(Diagnostic::new(span, "`join` 只能用在 `Vec[str]`")),
                 }
             }
             let recv = self.peek_place_ty(base)?;
@@ -1060,9 +1379,30 @@ impl<'a> Ctx<'a> {
             }
             Stmt::While { cond, body, span } => {
                 self.check_expr(cond, Some(&Type::Bool))?;
+                self.in_loop += 1;
                 let bt = self.check_expr(body, Some(&Type::Unit))?;
+                self.in_loop -= 1;
                 self.infer.unify(&bt, &Type::Unit, *span)?;
                 Ok(Type::Unit)
+            }
+            Stmt::Loop { body, span } => {
+                self.in_loop += 1;
+                let bt = self.check_expr(body, Some(&Type::Unit))?;
+                self.in_loop -= 1;
+                self.infer.unify(&bt, &Type::Unit, *span)?;
+                Ok(Type::Unit)
+            }
+            Stmt::Break { span } => {
+                if self.in_loop == 0 {
+                    return Err(Diagnostic::new(*span, "`break` 只能寫在迴圈裡"));
+                }
+                Ok(Type::Never)
+            }
+            Stmt::Continue { span } => {
+                if self.in_loop == 0 {
+                    return Err(Diagnostic::new(*span, "`continue` 只能寫在迴圈裡"));
+                }
+                Ok(Type::Never)
             }
             Stmt::For {
                 name,
@@ -1093,7 +1433,9 @@ impl<'a> Ctx<'a> {
                         span: *span,
                     },
                 );
+                self.in_loop += 1;
                 self.check_expr(body, Some(&Type::Unit))?;
+                self.in_loop -= 1;
                 self.pop();
                 Ok(Type::Unit)
             }
@@ -1163,8 +1505,10 @@ fn type_from_struct_field(te: &TypeExpr) -> Result<Type, Diagnostic> {
         TypeExpr::Named(name, args, span) => match name.as_str() {
             "i32" => Ok(Type::I32),
             "i64" => Ok(Type::I64),
+            "f64" => Ok(Type::F64),
             "bool" => Ok(Type::Bool),
             "str" => Ok(Type::Str),
+            "Map" if args.len() == 1 => Ok(Type::Map(Box::new(type_from_struct_field(&args[0])?))),
             "Vec" if args.len() == 1 => Ok(Type::Vec(Box::new(type_from_struct_field(&args[0])?))),
             "Option" if args.len() == 1 => {
                 Ok(Type::Option(Box::new(type_from_struct_field(&args[0])?)))
@@ -1220,6 +1564,12 @@ pub fn check(program: Program) -> Result<CheckedProgram, Diagnostic> {
                     ));
                 }
             }
+            Item::Mod { name, span } => {
+                return Err(Diagnostic::new(
+                    *span,
+                    format!("`mod {name}` 還沒展開。請用 `russd run 檔案.rsd` 從檔案編譯"),
+                ));
+            }
             Item::Impl(im) => {
                 let map = methods.entry(im.ty.clone()).or_default();
                 for m in &im.methods {
@@ -1250,6 +1600,7 @@ pub fn check(program: Program) -> Result<CheckedProgram, Diagnostic> {
         infer: Infer::new(),
         ret: Type::Unit,
         impl_ty: None,
+        in_loop: 0,
     };
 
     for item in &program.items {

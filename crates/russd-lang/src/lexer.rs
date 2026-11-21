@@ -111,20 +111,33 @@ impl<'a> Lexer<'a> {
         let kind = match ch {
             '+' => {
                 self.bump();
-                TokenKind::Plus
+                if self.peek() == Some('=') {
+                    self.bump();
+                    TokenKind::PlusEq
+                } else {
+                    TokenKind::Plus
+                }
             }
             '-' => {
                 self.bump();
                 if self.peek() == Some('>') {
                     self.bump();
                     TokenKind::Arrow
+                } else if self.peek() == Some('=') {
+                    self.bump();
+                    TokenKind::MinusEq
                 } else {
                     TokenKind::Minus
                 }
             }
             '*' => {
                 self.bump();
-                TokenKind::Star
+                if self.peek() == Some('=') {
+                    self.bump();
+                    TokenKind::StarEq
+                } else {
+                    TokenKind::Star
+                }
             }
             '/' => {
                 self.bump();
@@ -157,7 +170,10 @@ impl<'a> Lexer<'a> {
             }
             '<' => {
                 self.bump();
-                if self.peek() == Some('=') {
+                if self.peek() == Some('<') {
+                    self.bump();
+                    TokenKind::Shl
+                } else if self.peek() == Some('=') {
                     self.bump();
                     TokenKind::LtEq
                 } else {
@@ -166,12 +182,23 @@ impl<'a> Lexer<'a> {
             }
             '>' => {
                 self.bump();
-                if self.peek() == Some('=') {
+                if self.peek() == Some('>') {
+                    self.bump();
+                    TokenKind::Shr
+                } else if self.peek() == Some('=') {
                     self.bump();
                     TokenKind::GtEq
                 } else {
                     TokenKind::Gt
                 }
+            }
+            '^' => {
+                self.bump();
+                TokenKind::Caret
+            }
+            '~' => {
+                self.bump();
+                TokenKind::Tilde
             }
             '&' => {
                 self.bump();
@@ -188,7 +215,7 @@ impl<'a> Lexer<'a> {
                     self.bump();
                     TokenKind::OrOr
                 } else {
-                    return Err(self.error("Russd 目前不支援單個 `|`，請用 `||` 或 match 分支"));
+                    TokenKind::Pipe
                 }
             }
             '(' => {
@@ -270,6 +297,18 @@ impl<'a> Lexer<'a> {
     ) -> Result<Token, crate::diag::Diagnostic> {
         while matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
             self.bump();
+        }
+        if self.peek() == Some('.') && matches!(self.peek2(), Some(c) if c.is_ascii_digit()) {
+            self.bump();
+            while matches!(self.peek(), Some(c) if c.is_ascii_digit()) {
+                self.bump();
+            }
+            let raw = &self.src[start..self.pos];
+            let value: f64 = raw.parse().map_err(|_| self.error("無法解析浮點數"))?;
+            return Ok(Token {
+                kind: TokenKind::Float(value),
+                span: self.span_from(start, line, col),
+            });
         }
         let mut suffix_i64 = false;
         if self.peek() == Some('i') {
